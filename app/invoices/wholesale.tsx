@@ -393,7 +393,7 @@ export default function WholesaleInvoice() {
       const res = await api.post("/invoices", {
         invoice_type: "wholesale",
         movement_type: movementType,
-        invoice_date: invoiceDate,
+        invoice_date: invoiceDate.toISOString(),
         customer_id: customerId,
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim() || null,
