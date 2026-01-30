@@ -1,7 +1,9 @@
 import { useTheme } from "@/components/context/theme-context";
 import Button from "@/components/ui/Button";
+import api from "@/services/api";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
+
 import {
   Modal,
   Pressable,
@@ -15,7 +17,6 @@ import {
 import BackButton from "@/components/ui/BackButton";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { API_URL } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
@@ -44,20 +45,21 @@ export default function CashOutScreen() {
 
     const fetchCashOutById = async () => {
       try {
-        const res = await fetch(`${API_URL}/cash/out/${rawId}`);
-        const json = await res.json();
+        const { data } = await api.get(`/cash/out/${rawId}`);
 
-        setName(json.name);
-        setAmount(String(json.amount));
-        setNotes(json.notes || "");
-        const datePart = json.transaction_date.includes("T")
-          ? json.transaction_date.split("T")[0]
-          : json.transaction_date;
+        setName(data.name);
+        setAmount(String(data.amount));
+        setNotes(data.notes || "");
+
+        const datePart = data.transaction_date.includes("T")
+          ? data.transaction_date.split("T")[0]
+          : data.transaction_date;
 
         setDate(datePart);
+        setPermissionNumber(data.permission_number);
+        setEntryType(data.entry_type);
 
-        setPermissionNumber(json.permission_number);
-        setEntryType(json.entry_type);
+        setDate(datePart);
       } catch (err) {
         alert("فشل تحميل بيانات المنصرف");
       }
@@ -88,32 +90,18 @@ export default function CashOutScreen() {
 
     try {
       // 👇👇👇 هنا بالظبط
-      const url = isEdit
-        ? `${API_URL}/cash/out/${rawId}`
-        : `${API_URL}/cash/out`;
+      const payload = {
+        branch_id: 1,
+        name,
+        amount: Number(amount),
+        notes,
+        date,
+        entry_type: entryType,
+      };
 
-      const method = isEdit ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          branch_id: 1,
-          name,
-          amount: Number(amount),
-          notes,
-          date,
-          entry_type: entryType, // 👈 السطر المهم
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "خطأ غير متوقع");
-      }
+      const { data } = isEdit
+        ? await api.put(`/cash/out/${rawId}`, payload)
+        : await api.post("/cash/out", payload);
 
       setPermissionNumber(data.permission_number);
       setSuccessModalOpen(true);
@@ -124,7 +112,7 @@ export default function CashOutScreen() {
         setNotes("");
       }
     } catch (err: any) {
-      alert(err.message || "فشل حفظ إذن الصرف");
+      alert(err.response?.data?.error || "فشل حفظ إذن الصرف");
     } finally {
       setLoading(false);
     }

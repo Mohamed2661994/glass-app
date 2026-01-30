@@ -2,7 +2,7 @@ import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -41,19 +41,14 @@ export default function EditCashIn() {
   useEffect(() => {
     const loadCashIn = async () => {
       try {
-        const res = await fetch(`${API_URL}/cash-in/${id}`);
-        const json = await res.json();
+        const res = await api.get(`/cash-in/${id}`);
+        const item = res.data.data;
 
-        if (!res.ok || !json.data) {
+        if (!item || item.source_type !== "manual") {
           router.back();
           return;
         }
 
-        const item = json.data;
-        if (item.source_type !== "manual") {
-          router.back();
-          return;
-        }
         const dateStr = item.transaction_date.slice(0, 10);
         setDate(dateStr);
 
@@ -63,6 +58,9 @@ export default function EditCashIn() {
         setSourceName(item.customer_name);
         setAmount(String(item.amount));
         setDescription(item.description);
+      } catch (err) {
+        console.log("LOAD CASH IN ERROR", err);
+        router.back();
       } finally {
         setLoading(false);
       }
@@ -76,26 +74,21 @@ export default function EditCashIn() {
     try {
       setSaving(true);
 
-      const res = await fetch(`${API_URL}/cash-in/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer_name: sourceName,
-          description,
-          amount: Number(amount),
-          transaction_date: date, // ✅ String
-        }),
+      await api.put(`/cash-in/${id}`, {
+        customer_name: sourceName,
+        description,
+        amount: Number(amount),
+        transaction_date: date,
       });
 
-      if (!res.ok) throw new Error("فشل تعديل القيد");
-
       router.back();
-    } catch {
+    } catch (err) {
       alert("حصل خطأ أثناء الحفظ");
     } finally {
       setSaving(false);
     }
   };
+
   const inputStyle = {
     backgroundColor: colors.input,
     color: colors.text,

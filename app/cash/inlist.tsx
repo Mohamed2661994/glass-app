@@ -1,6 +1,6 @@
 import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -76,17 +76,12 @@ export default function CashInList() {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(`${API_URL}/cash-in`);
+      const { data } = await api.get("/cash-in");
+      setData(data.data || []);
 
-      const json = await res.json();
-
-      if (!json.success) {
-        throw new Error("فشل تحميل الوارد");
-      }
-
-      setData(json.data); // ✅
+      //setData(Array.isArray(data) ? data : []);
     } catch (err: any) {
-      setError(err.message);
+      setError(err.response?.data?.error || "فشل تحميل البيانات");
     } finally {
       setLoading(false);
     }
@@ -96,20 +91,12 @@ export default function CashInList() {
     try {
       setDeletingId(id);
 
-      const res = await fetch(`${API_URL}/cash-in/${id}`, {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        throw new Error(json.error || "فشل حذف القيد");
-      }
+      await api.delete(`/cash-in/${id}`);
 
       // شيل القيد من الليست
       setData((prev) => prev.filter((item) => item.id !== id));
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل حذف القيد");
     } finally {
       setDeletingId(null);
     }

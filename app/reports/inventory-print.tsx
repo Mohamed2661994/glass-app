@@ -1,7 +1,13 @@
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  Platform,
+  Text,
+  View,
+} from "react-native";
 
 type InventoryItem = {
   product_id: number;
@@ -26,13 +32,14 @@ export default function InventoryPrintPage() {
 
   const fetchReport = async () => {
     try {
-      let url = `${API_URL}/reports/inventory-details?`;
-      if (warehouse_id) url += `warehouse_id=${warehouse_id}&`;
-      if (manufacturer) url += `manufacturer=${manufacturer}&`;
+      const res = await api.get("/reports/inventory-details", {
+        params: {
+          warehouse_id: warehouse_id || undefined,
+          manufacturer: manufacturer || undefined,
+        },
+      });
 
-      const res = await fetch(url);
-      const json = await res.json();
-      setData(json);
+      setData(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.log("PRINT REPORT ERROR", e);
     } finally {
@@ -173,6 +180,12 @@ export default function InventoryPrintPage() {
           )}
         </View>
       </View>
+      {Platform.OS === "web" && !loading && (
+        <Text
+          style={{ display: "none" }}
+          onLayout={() => setTimeout(() => window.print(), 300)}
+        />
+      )}
     </>
   );
 }

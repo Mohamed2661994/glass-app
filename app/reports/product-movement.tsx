@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack } from "expo-router";
@@ -146,10 +147,8 @@ export default function ProductMovementReportScreen() {
 
   const fetchProducts = async () => {
     try {
-      const BASE_URL = "http://192.168.1.63:3001";
-      const res = await fetch(`${BASE_URL}/reports/products`);
-      const json = await res.json();
-      setProducts(Array.isArray(json) ? json : []);
+      const res = await api.get("/reports/products");
+      setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.log("Products fetch error", e);
     }
@@ -165,24 +164,17 @@ export default function ProductMovementReportScreen() {
     try {
       setLoading(true);
 
-      const BASE_URL =
-        Platform.OS === "web"
-          ? "http://192.168.1.63:3001" // 👈 الويب لازم IP مش localhost
-          : "http://192.168.1.63:3001"; // الموبايل برضو IP
+      const res = await api.get("/reports/product-movement", {
+        params: {
+          product_name: productName || undefined,
+          warehouse_id: warehouseId || undefined,
+          from: fromDate ? formatDateForAPI(fromDate) : undefined,
+          to: toDate ? formatDateForAPI(toDate) : undefined,
+          party_name: partyName || undefined,
+        },
+      });
 
-      let url = `${BASE_URL}/reports/product-movement?product_name=${encodeURIComponent(productName)}`;
-
-      if (warehouseId) url += `&warehouse_id=${warehouseId}`;
-      if (fromDate) url += `&from=${formatDateForAPI(fromDate)}`;
-      if (toDate) url += `&to=${formatDateForAPI(toDate)}`;
-
-      if (partyName) url += `&party_name=${encodeURIComponent(partyName)}`; // ✅
-
-      const response = await fetch(url);
-      const json = await response.json();
-
-      const rows = Array.isArray(json) ? json : [];
-      console.log(rows); // 👈 ضيف دي
+      const rows = Array.isArray(res.data) ? res.data : [];
       setData(rows);
 
       if (rows.length > 0) {

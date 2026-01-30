@@ -3,7 +3,7 @@ import BackButton from "@/components/ui/BackButton";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack } from "expo-router";
@@ -48,39 +48,30 @@ export default function CashInForm() {
 
   const submitCashIn = async () => {
     try {
-      setLoading(true); // 👈 شغّل اللودينج
-      const res = await fetch(`${API_URL}/cash/in`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          branch_id: 1, // 👈 مؤقت لحد ما نعمل users
-          transaction_date: date.toISOString().split("T")[0],
-          customer_name: sourceName,
-          description: finalDescription,
-          amount: Number(amount),
-          source_type: entryType, // 👈 الجديد المهم
-        }),
+      setLoading(true);
+
+      const { data } = await api.post("/cash/in", {
+        branch_id: 1,
+        transaction_date: date.toISOString().split("T")[0],
+        customer_name: sourceName,
+        description: finalDescription,
+        amount: Number(amount),
+        source_type: entryType,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل تسجيل الوارد");
-      }
-      setConfirmVisible(false); // 👈 اقفل مودال التأكيد
+      setConfirmVisible(false);
       setCashInNumber(data.cash_in_id);
       setSuccessVisible(true);
+
       // تفريغ الفورم
       setSourceName("");
       setAmount("");
       setDescription("");
       setDate(new Date());
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل تسجيل الوارد");
     } finally {
-      setLoading(false); // 👈 اطفي اللودينج
+      setLoading(false);
     }
   };
 

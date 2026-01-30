@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/context/theme-context";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
@@ -118,36 +118,33 @@ export default function RetailInvoice() {
   //دالة الباركود
   const handleBarcodeScan = async (scannedCode?: string) => {
     const code = scannedCode ?? barcode;
-
     if (!code.trim()) return;
 
     try {
-      const res = await fetch(
-        `${API_URL}/products/by-barcode/${code}?invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
+      const { data: product } = await api.get(`/products/by-barcode/${code}`, {
+        params: { invoice_type: invoiceType, movement_type: movementType },
+      });
 
-      if (!res.ok) {
-        setScanned(true); // ⛔ امنع أي scan جديد
-        setScannerOpen(false); // اقفل الكاميرا
+      if (!product) {
+        setScanned(true);
+        setScannerOpen(false);
         Alert.alert("تنبيه", "الباركود غير مسجل", [
           {
             text: "حسنًا",
             onPress: () => {
               setBarcode("");
-              setScanned(false); // ✅ جهّز للمرة الجاية
+              setScanned(false);
             },
           },
         ]);
         return;
       }
 
-      const product = await res.json();
       await beepSound.current?.replayAsync();
 
       setItems((prev) => {
         const exists = prev.find((p) => p.product_id === product.id);
 
-        // ✅ الصنف موجود → فوكس على الكمية فقط
         if (exists) {
           setTimeout(() => {
             qtyRefs.current[product.id]?.focus();
@@ -157,17 +154,16 @@ export default function RetailInvoice() {
             p.product_id === product.id
               ? { ...p, quantity: p.quantity + 1 }
               : p,
-          ); // 👈 لا تعديل على الكمية
+          );
         }
 
-        // صنف جديد
         return [
           ...prev,
           {
             product_id: product.id,
             product_name: product.name,
             manufacturer: product.manufacturer,
-            package: product.retail_package, // 👈 الصح
+            package: product.retail_package,
             price: product.price,
             quantity: 1,
             discount: product.discount_amount || 0,
@@ -184,9 +180,13 @@ export default function RetailInvoice() {
       setTimeout(() => {
         barcodeRef.current?.focus();
       }, 150);
-    } catch (err) {
-      console.error(err);
-      Alert.alert("خطأ", "فشل قراءة الباركود");
+    } catch (err: any) {
+      Alert.alert(
+        "خطأ",
+        err.response?.status === 404
+          ? "الباركود غير مسجل"
+          : "فشل قراءة الباركود",
+      );
       setScanned(false);
     }
   };
@@ -214,11 +214,15 @@ export default function RetailInvoice() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${API_URL}/products?branch_id=${branchId}&invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
+      const { data } = await api.get("/products", {
+        params: {
+          branch_id: branchId,
+          invoice_type: invoiceType,
+          movement_type: movementType,
+        },
+      });
+      setProducts(data);
 
-      const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch (err) {
       Alert.alert("خطأ", "فشل تحميل الأصناف");
@@ -230,10 +234,7 @@ export default function RetailInvoice() {
   const fetchInvoiceForEdit = async () => {
     if (!invoiceId || isNaN(invoiceId)) return;
     try {
-      const res = await fetch(`${API_URL}/invoices/${invoiceId}/edit`);
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error);
+      const { data } = await api.get(`/invoices/${invoiceId}/edit`);
 
       setCustomerName(data.customer_name || "");
       setCustomerPhone(data.customer_phone || "");
@@ -384,59 +385,38 @@ export default function RetailInvoice() {
 
   const saveInvoice = async () => {
     try {
-      const res = await fetch(`${API_URL}/invoices/retail/${invoiceId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branch_id: branchId,
-          movement_type: movementType,
-          invoice_date: invoiceDate.toISOString().split("T")[0],
-
-          customer_name: customerName,
-          customer_phone: customerPhone,
-
-          items,
-          total_before_discount: totalBeforeDiscount,
-          final_total: finalTotal,
-
-          extra_discount: safeExtraDiscount,
-          apply_items_discount: applyDiscount,
-
-          paid_amount: Number(paidAmount) || 0,
-          previous_balance: Number(previousBalance) || 0,
-        }),
+      await api.put(`/invoices/retail/${invoiceId}`, {
+        branch_id: branchId,
+        movement_type: movementType,
+        invoice_date: invoiceDate.toISOString().split("T")[0],
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        items,
+        total_before_discount: totalBeforeDiscount,
+        final_total: finalTotal,
+        extra_discount: safeExtraDiscount,
+        apply_items_discount: applyDiscount,
+        paid_amount: Number(paidAmount) || 0,
+        previous_balance: Number(previousBalance) || 0,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setSavedInvoiceNumber(invoiceId);
       setShowSuccessModal(true);
+      setLastInvoiceId(invoiceId); // عشان الطباعة والترحيل
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل حفظ التعديلات");
     }
   };
 
   const transferToCashIn = async () => {
     try {
-      const res = await fetch(`${API_URL}/cash/in/from-invoice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invoice_id: lastInvoiceId,
-        }),
+      const { data } = await api.post("/cash/in/from-invoice", {
+        invoice_id: invoiceId,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل ترحيل اليومية");
-      }
-
-      setCashMessage(data.message); // 👈 الرسالة من السيرفر
+      setCashMessage(data.message);
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل ترحيل اليومية");
     } finally {
       setShowCashTransferConfirm(false);
       setShowSuccessModal(true);

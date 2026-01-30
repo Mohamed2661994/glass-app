@@ -1,6 +1,6 @@
 import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import Ionicons from "@expo/vector-icons/build/Ionicons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Print from "expo-print";
@@ -75,17 +75,14 @@ export default function CashSummaryScreen() {
     const load = async () => {
       try {
         const [inRes, outRes] = await Promise.all([
-          fetch(`${API_URL}/cash-in`),
-          fetch(`${API_URL}/cash/out?branch_id=1`),
+          api.get("/cash-in"),
+          api.get("/cash/out", { params: { branch_id: 1 } }),
         ]);
 
-        const inJson = await inRes.json();
-        const outJson = await outRes.json();
-
-        setCashIn(inJson.data || []);
-        setCashOut(outJson.data || []);
-      } catch (e) {
-        console.log("SUMMARY FETCH ERROR", e);
+        setCashIn(inRes.data.data || []);
+        setCashOut(outRes.data.data || []);
+      } catch (err: any) {
+        console.log("SUMMARY FETCH ERROR", err.response?.data || err.message);
       } finally {
         setLoading(false);
       }

@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/context/theme-context";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
@@ -278,23 +278,11 @@ export default function EditWholesaleInvoice() {
     if (!lastInvoiceId) return;
 
     try {
-      const res = await fetch(`${API_URL}/cash/in/from-invoice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invoice_id: lastInvoiceId,
-        }),
+      const { data } = await api.post("/cash/in/from-invoice", {
+        invoice_id: lastInvoiceId,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل ترحيل اليومية");
-      }
-
-      setCashMessage(data.message); // 👈 رسالة السيرفر
+      setCashMessage(data.message);
     } catch (err: any) {
       Alert.alert("خطأ", err.message);
     } finally {
@@ -353,10 +341,7 @@ export default function EditWholesaleInvoice() {
 
     const loadInvoice = async () => {
       try {
-        const res = await fetch(`${API_URL}/invoices/${invoiceId}/edit`);
-        const data = await res.json();
-
-        if (!res.ok) throw new Error(data.error);
+        const { data } = await api.get(`/invoices/${invoiceId}/edit`);
 
         setCustomerName(data.customer_name || "");
         setCustomerPhone(data.customer_phone || "");
@@ -394,10 +379,14 @@ export default function EditWholesaleInvoice() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${API_URL}/products?branch_id=${branchId}&invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
-      const data = await res.json();
+      const { data } = await api.get("/products", {
+        params: {
+          branch_id: branchId,
+          invoice_type: invoiceType,
+          movement_type: movementType,
+        },
+      });
+
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       Alert.alert("خطأ", "فشل تحميل الأصناف");
@@ -418,25 +407,22 @@ export default function EditWholesaleInvoice() {
     setSaving(true);
 
     try {
-      const res = await fetch(`${API_URL}/invoices/${invoiceId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branch_id: branchId,
-          invoice_type: "wholesale",
-          movement_type: movementType,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          apply_items_discount: applyDiscount,
-          manual_discount: safeExtraDiscount,
-          items,
-          paid_amount: Number(paidAmount) || 0,
-          previous_balance: Number(previousBalance) || 0,
-        }),
+      const res = await api.put(`/invoices/${invoiceId}`, {
+        branch_id: branchId,
+        invoice_type: "wholesale",
+        movement_type: movementType,
+        customer_name: customerName,
+        customer_phone: customerPhone,
+        apply_items_discount: applyDiscount,
+        manual_discount: safeExtraDiscount,
+        items,
+        paid_amount: Number(paidAmount) || 0,
+        previous_balance: Number(previousBalance) || 0,
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      setSavedInvoiceNumber(invoiceId);
+      setLastInvoiceId(invoiceId);
+      setShowSuccessModal(true);
 
       setShowSuccessModal(true);
     } catch (err: any) {

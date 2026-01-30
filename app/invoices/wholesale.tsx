@@ -1,10 +1,9 @@
 import { useTheme } from "@/components/context/theme-context";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
 import { Stack, router } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -117,11 +116,11 @@ export default function WholesaleInvoice() {
     try {
       setPhoneSearchLoading(true);
 
-      const res = await fetch(`${API_URL}/customers/by-phone?phone=${phone}`);
-      const data = await res.json();
-
-      if (data) {
-        setPhoneSearchResult(data);
+      const res = await api.get("/customers/by-phone", {
+        params: { phone },
+      });
+      if (res.data) {
+        setPhoneSearchResult(res.data);
       }
     } catch (err) {
       console.log("Modal phone search error", err);
@@ -147,9 +146,11 @@ export default function WholesaleInvoice() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/customers/search?name=${name}`);
-      const data = await res.json();
-      setCustomerSuggestions(data);
+      const res = await api.get("/customers/search", {
+        params: { name },
+      });
+      setCustomerSuggestions(res.data);
+
       setShowCustomerDropdown(true);
     } catch (err) {
       console.log("Customer search error", err);
@@ -159,8 +160,10 @@ export default function WholesaleInvoice() {
     if (phone.length < 8) return;
 
     try {
-      const res = await fetch(`${API_URL}/customers/by-phone?phone=${phone}`);
-      const data = await res.json();
+      const res = await api.get("/customers/by-phone", {
+        params: { phone },
+      });
+      const data = res.data;
 
       if (data) {
         setCustomerName(data.name);
@@ -204,12 +207,14 @@ export default function WholesaleInvoice() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${API_URL}/products?branch_id=${branchId}&invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
-
-      const data = await res.json();
-      setProducts(Array.isArray(data) ? data : []);
+      const res = await api.get("/products", {
+        params: {
+          branch_id: branchId,
+          invoice_type: invoiceType,
+          movement_type: movementType,
+        },
+      });
+      setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       Alert.alert("خطأ", "فشل تحميل الأصناف");
       setProducts([]);
@@ -347,15 +352,12 @@ export default function WholesaleInvoice() {
   };
 
   const loadCustomerPhones = async () => {
-    const res = await fetch(`${API_URL}/customers/${customerId}/phones`);
-    const data = await res.json();
-    setCustomerPhones(data);
+    const res = await api.get(`/customers/${customerId}/phones`);
+    setCustomerPhones(res.data);
   };
   const addPhoneToCustomer = async () => {
-    await fetch(`${API_URL}/customers/${customerId}/phones`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: newPhone }),
+    await api.post(`/customers/${customerId}/phones`, {
+      phone: newPhone,
     });
 
     setNewPhone("");
@@ -379,59 +381,36 @@ export default function WholesaleInvoice() {
 
   const saveInvoice = async () => {
     if (saving) return;
+
     if (items.length === 0) {
       Alert.alert("تنبيه", "لا يوجد أصناف في الفاتورة");
       return;
     }
-    setSaving(true); // 👈 مهم جدًا
-    const isUpdate = !!lastInvoiceId;
 
-    const url = isUpdate
-      ? `${API_URL}/invoices/${lastInvoiceId}`
-      : `${API_URL}/invoices`;
-
-    const method = isUpdate ? "PUT" : "POST";
+    setSaving(true);
 
     try {
-      const token =
-        Platform.OS === "web"
-          ? localStorage.getItem("token")
-          : await SecureStore.getItemAsync("token"); // أو AsyncStorage حسب تخزينك
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // 👈 أهم سطر
-        },
-        body: JSON.stringify({
-          invoice_type: "wholesale",
-          movement_type: movementType,
-          invoice_date: invoiceDate,
-          customer_name: customerName.trim(),
-          customer_phone:
-            customerPhone.trim() === "" ? null : customerPhone.trim(),
-          apply_items_discount: applyDiscount,
-          manual_discount: safeExtraDiscount,
-          items,
-          paid_amount: Number(paidAmount) || 0,
-          previous_balance: Number(previousBalance) || 0,
-        }),
+      const res = await api.post("/invoices/wholesale", {
+        invoice_type: "wholesale",
+        movement_type: movementType,
+        invoice_date: invoiceDate,
+        customer_id: customerId,
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone.trim() || null,
+        apply_items_discount: applyDiscount,
+        manual_discount: safeExtraDiscount,
+        items,
+        paid_amount: Number(paidAmount) || 0,
+        previous_balance: Number(previousBalance) || 0,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل حفظ الفاتورة");
-      }
-
-      setLastInvoiceId(data.invoice_id);
-      setSavedInvoiceNumber(data.invoice_id);
+      setLastInvoiceId(res.data.invoice_id);
+      setSavedInvoiceNumber(res.data.invoice_id);
       setShowCashTransferConfirm(true);
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل حفظ الفاتورة");
     } finally {
-      setSaving(false); // 👈 لازم تتحط هنا
+      setSaving(false);
     }
   };
 
@@ -439,25 +418,14 @@ export default function WholesaleInvoice() {
     if (!lastInvoiceId) return;
 
     try {
-      const res = await fetch(`${API_URL}/cash/in/from-invoice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invoice_id: lastInvoiceId,
-        }),
+      const res = await api.post("/cash/in/from-invoice", {
+        invoice_id: lastInvoiceId,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل ترحيل اليومية");
-      }
-
-      setCashMessage(data.message); // 👈 رسالة السيرفر
+      // رسالة السيرفر
+      setCashMessage(res.data.message || "تم الترحيل بنجاح");
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل ترحيل اليومية");
     } finally {
       setShowCashTransferConfirm(false);
       setShowSuccessModal(true);

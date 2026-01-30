@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, Stack } from "expo-router";
@@ -48,22 +49,16 @@ export default function CustomerBalancesReportScreen() {
     try {
       setLoading(true);
 
-      const BASE_URL = "http://192.168.1.63:3001";
+      const res = await api.get("/reports/customer-balances", {
+        params: {
+          customer_name: customerSearch || undefined,
+          from: fromDate ? formatDateForAPI(fromDate) : undefined,
+          to: toDate ? formatDateForAPI(toDate) : undefined,
+          warehouse_id: warehouseId || undefined,
+        },
+      });
 
-      let url = `${BASE_URL}/reports/customer-balances?`;
-
-      if (customerSearch)
-        url += `customer_name=${encodeURIComponent(customerSearch)}&`;
-
-      if (fromDate) url += `from=${formatDateForAPI(fromDate)}&`;
-      if (toDate) url += `to=${formatDateForAPI(toDate)}&`;
-
-      if (warehouseId) url += `warehouse_id=${warehouseId}&`;
-
-      const res = await fetch(url);
-      const json = await res.json();
-
-      setData(Array.isArray(json) ? json : []);
+      setData(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.log("Customer Balance Error:", e);
     } finally {

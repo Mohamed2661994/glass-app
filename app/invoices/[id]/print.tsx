@@ -1,4 +1,4 @@
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
@@ -73,11 +73,10 @@ export default function InvoicePrintPage() {
 
     const fetchInvoice = async () => {
       try {
-        const res = await fetch(`${API_URL}/invoices/${id}/print`);
-        const data = await res.json();
-        if (res.ok) setInvoice(data);
+        const res = await api.get(`/invoices/${id}/print`);
+        setInvoice(res.data);
       } catch (e) {
-        console.error(e);
+        console.error("INVOICE PRINT ERROR", e);
       } finally {
         setLoading(false);
       }

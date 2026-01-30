@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -33,11 +34,8 @@ export default function InventoryReportScreen() {
 
   const fetchReport = async () => {
     try {
-      const response = await fetch(
-        "http://192.168.1.63:3001/reports/inventory-summary",
-      );
-      const json = await response.json();
-      setData(Array.isArray(json) ? json : []);
+      const { data } = await api.get("/reports/inventory-summary");
+      setData(Array.isArray(data) ? data : []);
     } catch (error) {
       console.log("Inventory Report Error:", error);
     } finally {

@@ -1,6 +1,6 @@
 import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Picker } from "@react-native-picker/picker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
@@ -45,11 +45,8 @@ export default function InventoryValueReport() {
 
   const fetchManufacturers = async () => {
     try {
-      const res = await fetch(`${API_URL}/reports/manufacturers`);
-      const json = await res.json();
-
-      // ناخد اسم المصنع بس
-      const names = json.map((item: any) => item.manufacturer);
+      const res = await api.get("/reports/manufacturers");
+      const names = (res.data || []).map((item: any) => item.manufacturer);
 
       // نشيل الفاضي والتكرار
       const unique = [
@@ -66,16 +63,14 @@ export default function InventoryValueReport() {
     try {
       setLoading(true);
 
-      let url = `${API_URL}/reports/inventory-details?`;
+      const res = await api.get("/reports/inventory-details", {
+        params: {
+          warehouse_id: warehouseFilter ?? undefined,
+          manufacturer: manufacturerFilter ?? undefined,
+        },
+      });
 
-      if (warehouseFilter) url += `warehouse_id=${warehouseFilter}&`;
-      if (manufacturerFilter)
-        url += `manufacturer=${encodeURIComponent(manufacturerFilter)}&`;
-
-      const res = await fetch(url);
-      const json = await res.json();
-
-      setData(Array.isArray(json) ? json : []);
+      setData(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.log("Inventory Report Error", err);
     } finally {

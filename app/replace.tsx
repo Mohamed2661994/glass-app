@@ -1,24 +1,23 @@
-import {
-  StyleSheet,
-  TextInput,
-  ActivityIndicator,
-  TouchableOpacity,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-  Text,
-} from "react-native";
-import { useEffect, useState } from "react";
-import DropDownPicker from "react-native-dropdown-picker";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/components/context/theme-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
-
-const BASE_URL = "http://192.168.1.63:3001";
+import api from "@/services/api";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import DropDownPicker from "react-native-dropdown-picker";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 /* ================= Toast داخلي ================= */
 function AppToast({
@@ -74,9 +73,10 @@ export default function ReplaceScreen() {
   const loadProducts = async () => {
     try {
       setLoadingProducts(true);
-      const res = await fetch(`${BASE_URL}/products/for-replace?branch_id=2`);
-      const data = await res.json();
-      setProducts(data);
+      const { data } = await api.get("/products/for-replace", {
+        params: { branch_id: 2 },
+      });
+      setProducts(Array.isArray(data) ? data : []);
     } catch {
       setToast({ message: "فشل تحميل الأصناف", type: "error" });
     } finally {
@@ -120,24 +120,17 @@ export default function ReplaceScreen() {
     try {
       setSubmitting(true);
 
-      const res = await fetch(`${BASE_URL}/stock/replace`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          branch_id: 2,
-          // warehouse_id: 2,
-          out_product_id: outProductId,
-          out_quantity: Number(outQuantity),
-          in_product_id: inProductId,
-          in_quantity: Number(inQuantity),
-          note,
-        }),
+      const { data } = await api.post("/stock/replace", {
+        branch_id: 2,
+        out_product_id: outProductId,
+        out_quantity: Number(outQuantity),
+        in_product_id: inProductId,
+        in_quantity: Number(inQuantity),
+        note,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        setToast({ message: data.error || "فشل التنفيذ", type: "error" });
+      if (data?.error) {
+        setToast({ message: data.error, type: "error" });
         return;
       }
 
@@ -164,14 +157,12 @@ export default function ReplaceScreen() {
 
   const fetchLiveQuantity = async (
     productId: number,
-    setQty: (v: number | null) => void
+    setQty: (v: number | null) => void,
   ) => {
     try {
-      const res = await fetch(
-        `${BASE_URL}/stock/quantity?product_id=${productId}&branch_id=2`
-      );
-
-      const data = await res.json();
+      const { data } = await api.get("/stock/quantity", {
+        params: { product_id: productId, branch_id: 2 },
+      });
       setQty(data.quantity);
     } catch {
       setQty(null);

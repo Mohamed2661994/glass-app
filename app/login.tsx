@@ -1,7 +1,9 @@
 import { useAuth } from "@/components/context/AuthContext";
 import api from "@/services/api";
+import { socket } from "@/services/socket";
 import { router } from "expo-router";
 import React, { useState } from "react";
+
 import {
   Alert,
   StyleSheet,
@@ -23,7 +25,7 @@ const LoginScreen: React.FC = () => {
       Alert.alert("تنبيه", "ادخل اسم المستخدم وكلمة المرور");
       return;
     }
-    console.log("API URL:", api.defaults.baseURL);
+
     try {
       setLoading(true);
 
@@ -31,20 +33,28 @@ const LoginScreen: React.FC = () => {
       const { token, user } = res.data;
 
       await login(token, user);
+
+      // 🔌 تشغيل السوكيت
+      socket.connect();
+
+      socket.emit("register_user", {
+        user_id: user.id,
+        branch_id: user.branch_id,
+      });
+
       router.replace("/");
+
       setTimeout(() => {
         Alert.alert("تم", "تم تسجيل الدخول بنجاح ✅");
       }, 300);
     } catch (err: any) {
-      console.log("STATUS:", err.response?.status);
-      console.log("DATA:", err.response?.data);
-      console.log("MESSAGE:", err.message);
-
       if (!err.response) {
         Alert.alert("مشكلة اتصال", "التطبيق مش قادر يوصل للسيرفر");
       } else {
         Alert.alert("خطأ", err.response.data?.error || "فشل تسجيل الدخول");
       }
+    } finally {
+      setLoading(false);
     }
   };
 

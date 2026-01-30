@@ -2,7 +2,7 @@ import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useEffect, useRef } from "react";
 import { Modal, TextInput } from "react-native";
@@ -73,11 +73,13 @@ export default function CashOutListScreen() {
 
   const fetchCashOut = async () => {
     try {
-      const res = await fetch(`${API_URL}/cash/out?branch_id=1`);
-      const json = await res.json();
-      setData(json.data || []);
-    } catch (err) {
-      console.error("FETCH CASH OUT ERROR", err);
+      const { data } = await api.get("/cash/out", {
+        params: { branch_id: 1 },
+      });
+
+      setData(data.data || []);
+    } catch (err: any) {
+      console.error("FETCH CASH OUT ERROR", err.response?.data || err.message);
     } finally {
       setLoading(false);
     }
@@ -240,16 +242,14 @@ export default function CashOutListScreen() {
     if (!selectedItem) return;
 
     try {
-      await fetch(`${API_URL}/cash/out/${selectedItem.id}`, {
-        method: "DELETE",
-      });
+      await api.delete(`/cash/out/${selectedItem.id}`);
 
       setData((prev) => prev.filter((item) => item.id !== selectedItem.id));
 
       setDeleteModalOpen(false);
       setSelectedItem(null);
-    } catch (err) {
-      console.error("DELETE CASH OUT ERROR", err);
+    } catch (err: any) {
+      console.error("DELETE CASH OUT ERROR", err.response?.data || err.message);
     }
   };
 

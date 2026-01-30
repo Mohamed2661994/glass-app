@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/context/theme-context";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Audio } from "expo-av";
 import { CameraView, useCameraPermissions } from "expo-camera";
@@ -78,10 +78,9 @@ export default function ProductsScreen() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_URL}/admin/products`);
-      const data = await res.json();
-      setProducts(data);
-      setFiltered(data);
+      const res = await api.get("/admin/products");
+      setProducts(res.data);
+      setFiltered(res.data);
     } catch {
       alert("فشل الاتصال بالسيرفر");
     } finally {
@@ -134,21 +133,14 @@ export default function ProductsScreen() {
       alert("من فضلك أكمل كل البيانات المطلوبة");
       return;
     }
+
     const finalBarcode = barcode.trim() ? barcode.trim() : null;
 
     try {
       setSaving(true);
 
-      const url = editingId
-        ? `${API_URL}/admin/products/${editingId}`
-        : `${API_URL}/admin/products`;
-
-      const method = editingId ? "PUT" : "POST";
-
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      if (editingId) {
+        await api.put(`/admin/products/${editingId}`, {
           name,
           wholesale_package: wholesalePackage,
           retail_package: retailPackage,
@@ -159,25 +151,32 @@ export default function ProductsScreen() {
           wholesale_price: Number(wholesalePrice),
           retail_price: Number(retailPrice),
           discount_amount: Number(discount || 0),
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "حدث خطأ");
-        return;
+        });
+      } else {
+        await api.post("/admin/products", {
+          name,
+          wholesale_package: wholesalePackage,
+          retail_package: retailPackage,
+          manufacturer,
+          barcode: finalBarcode,
+          purchase_price: Number(purchasePrice),
+          retail_purchase_price: Number(retailPurchasePrice),
+          wholesale_price: Number(wholesalePrice),
+          retail_price: Number(retailPrice),
+          discount_amount: Number(discount || 0),
+        });
       }
 
       await loadProducts();
       resetForm();
-      setActiveEditId(null); // 👈 هنا
-    } catch {
-      alert("فشل الاتصال بالسيرفر");
+      setActiveEditId(null);
+    } catch (err: any) {
+      alert(err.response?.data?.error || "حدث خطأ");
     } finally {
       setSaving(false);
     }
   };
+
   const openScanner = () => {
     setScanned(false);
     setScannerOpen(true);
@@ -575,14 +574,9 @@ export default function ProductsScreen() {
                           );
 
                           try {
-                            await fetch(
-                              `${API_URL}/admin/products/${item.id}/toggle`,
-                              {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ is_active: value }),
-                              },
-                            );
+                            await api.put(`/admin/products/${item.id}/toggle`, {
+                              is_active: value,
+                            });
                           } catch {
                             setProducts((prev) =>
                               prev.map((p) =>
@@ -636,14 +630,9 @@ export default function ProductsScreen() {
                           );
 
                           try {
-                            await fetch(
-                              `${API_URL}/admin/products/${item.id}/toggle`,
-                              {
-                                method: "PUT",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ is_active: value }),
-                              },
-                            );
+                            await api.put(`/admin/products/${item.id}/toggle`, {
+                              is_active: value,
+                            });
                           } catch {
                             setProducts((prev) =>
                               prev.map((p) =>

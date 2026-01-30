@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/context/theme-context";
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
@@ -124,11 +124,14 @@ export default function RetailInvoice() {
     if (!code.trim()) return;
 
     try {
-      const res = await fetch(
-        `${API_URL}/products/by-barcode/${code}?invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
+      const res = await api.get(`/products/by-barcode/${code}`, {
+        params: {
+          invoice_type: invoiceType,
+          movement_type: movementType,
+        },
+      });
 
-      if (!res.ok) {
+      if (res.status >= 400) {
         setScanned(true); // ⛔ امنع أي scan جديد
         setScannerOpen(false); // اقفل الكاميرا
         Alert.alert("تنبيه", "الباركود غير مسجل", [
@@ -142,8 +145,8 @@ export default function RetailInvoice() {
         ]);
         return;
       }
+      const product = res.data;
 
-      const product = await res.json();
       await beepSound.current?.replayAsync();
 
       setItems((prev) => {
@@ -216,12 +219,14 @@ export default function RetailInvoice() {
     try {
       setLoading(true);
 
-      const res = await fetch(
-        `${API_URL}/products?branch_id=${branchId}&invoice_type=${invoiceType}&movement_type=${movementType}`,
-      );
-
-      const data = await res.json();
-      setProducts(Array.isArray(data) ? data : []);
+      const res = await api.get("/products", {
+        params: {
+          branch_id: branchId,
+          invoice_type: invoiceType,
+          movement_type: movementType,
+        },
+      });
+      setProducts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       Alert.alert("خطأ", "فشل تحميل الأصناف");
       setProducts([]);
@@ -366,10 +371,10 @@ export default function RetailInvoice() {
     try {
       setPhoneSearchLoading(true);
 
-      const res = await fetch(`${API_URL}/customers/by-phone?phone=${text}`);
-      const data = await res.json();
-
-      setPhoneSearchResult(data);
+      const res = await api.get("/customers/by-phone", {
+        params: { phone: text },
+      });
+      setPhoneSearchResult(res.data);
     } catch (err) {
       console.log("Phone search error", err);
     } finally {
@@ -401,83 +406,58 @@ export default function RetailInvoice() {
 
     const isUpdate = !!lastInvoiceId;
 
-    const url = isUpdate
-      ? `${API_URL}/invoices/retail/${lastInvoiceId}`
-      : `${API_URL}/invoices/retail`;
-
-    const method = isUpdate ? "PUT" : "POST";
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          branch_id: branchId,
-          movement_type: movementType,
-          invoice_date: invoiceDate.toISOString().split("T")[0],
+      const res = isUpdate
+        ? await api.put(`/invoices/retail/${lastInvoiceId}`, {
+            branch_id: branchId,
+            movement_type: movementType,
+            invoice_date: invoiceDate.toISOString().split("T")[0],
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            apply_items_discount: applyDiscount,
+            total_before_discount: totalBeforeDiscount,
+            items_discount: itemsDiscount,
+            extra_discount: safeExtraDiscount,
+            final_total: finalTotal,
+            items,
+            paid_amount: Number(paidAmount) || 0,
+            previous_balance: Number(previousBalance) || 0,
+          })
+        : await api.post("/invoices/retail", {
+            branch_id: branchId,
+            movement_type: movementType,
+            invoice_date: invoiceDate.toISOString().split("T")[0],
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            apply_items_discount: applyDiscount,
+            total_before_discount: totalBeforeDiscount,
+            items_discount: itemsDiscount,
+            extra_discount: safeExtraDiscount,
+            final_total: finalTotal,
+            items,
+            paid_amount: Number(paidAmount) || 0,
+            previous_balance: Number(previousBalance) || 0,
+          });
 
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          apply_items_discount: applyDiscount,
-          total_before_discount: totalBeforeDiscount,
-          items_discount: itemsDiscount,
-          extra_discount: safeExtraDiscount,
-          final_total: finalTotal,
-          items,
+      setLastInvoiceId(res.data.invoice_id);
+      setSavedInvoiceNumber(res.data.invoice_id);
 
-          paid_amount: Number(paidAmount) || 0,
-          previous_balance: Number(previousBalance) || 0,
-        }),
-      });
-
-      const data = await res.json();
-      console.log("DATA:", data);
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل حفظ الفاتورة");
-      }
-
-      setLastInvoiceId(data.invoice_id);
-      setSavedInvoiceNumber(data.invoice_id);
-
-      setTimeout(() => {
-        setShowCashTransferConfirm(true);
-      }, 300);
+      setTimeout(() => setShowCashTransferConfirm(true), 300);
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل حفظ الفاتورة");
     }
-
-    console.log("🚀 SAVE INVOICE START");
-    console.log("DATA:", {
-      branch_id: branchId,
-      movement_type: movementType,
-      items,
-    });
   };
 
   const transferToCashIn = async () => {
     try {
-      const res = await fetch(`${API_URL}/cash/in/from-invoice`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          invoice_id: lastInvoiceId,
-        }),
+      const res = await api.post("/cash/in/from-invoice", {
+        invoice_id: lastInvoiceId,
       });
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "فشل ترحيل اليومية");
-      }
-
-      setCashMessage(data.message); // 👈 الرسالة من السيرفر
+      // Axios بيديك البيانات جاهزة هنا 👇
+      setCashMessage(res.data.message);
     } catch (err: any) {
-      Alert.alert("خطأ", err.message);
+      Alert.alert("خطأ", err.response?.data?.error || "فشل ترحيل اليومية");
     } finally {
       setShowCashTransferConfirm(false);
       setShowSuccessModal(true);

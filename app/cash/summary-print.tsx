@@ -1,4 +1,4 @@
-import { API_URL } from "@/services/api";
+import api from "@/services/api";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
@@ -45,14 +45,24 @@ export default function CashSummaryPrint() {
   /* ================= FETCH ================= */
   useEffect(() => {
     const load = async () => {
-      const [inRes, outRes] = await Promise.all([
-        fetch(`${API_URL}/cash-in`),
-        fetch(`${API_URL}/cash/out?branch_id=1`),
-      ]);
-      setCashIn((await inRes.json()).data || []);
-      setCashOut((await outRes.json()).data || []);
-      setLoading(false);
+      try {
+        const [inRes, outRes] = await Promise.all([
+          api.get("/cash-in"),
+          api.get("/cash/out", { params: { branch_id: 1 } }),
+        ]);
+
+        setCashIn(inRes.data.data || []);
+        setCashOut(outRes.data.data || []);
+      } catch (err: any) {
+        console.error(
+          "CASH SUMMARY LOAD ERROR",
+          err.response?.data || err.message,
+        );
+      } finally {
+        setLoading(false);
+      }
     };
+
     load();
   }, []);
 

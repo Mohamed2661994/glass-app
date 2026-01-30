@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
@@ -31,11 +32,8 @@ export default function LowStockReportScreen() {
 
   const fetchReport = async () => {
     try {
-      const response = await fetch(
-        "http://192.168.1.63:3001/reports/low-stock",
-      );
-      const json = await response.json();
-      setData(Array.isArray(json) ? json : []);
+      const res = await api.get("/reports/low-stock");
+      setData(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.log("Low Stock Report Error:", error);
     } finally {
