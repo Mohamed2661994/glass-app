@@ -390,7 +390,7 @@ export default function WholesaleInvoice() {
     setSaving(true);
 
     try {
-      const res = await api.post("/invoices/wholesale", {
+      const res = await api.post("/invoices", {
         invoice_type: "wholesale",
         movement_type: movementType,
         invoice_date: invoiceDate,
