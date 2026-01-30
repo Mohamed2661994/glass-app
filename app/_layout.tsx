@@ -4,15 +4,16 @@ import {
   useNotifications,
 } from "@/components/context/NotificationContext";
 import { ThemeProvider, useTheme } from "@/components/context/theme-context";
-import { useEffect } from "react";
-import { Platform } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-
 import GlobalNotification, {
   triggerNotification,
 } from "@/components/GlobalNotification";
 import { socket } from "@/services/socket";
+import { Ionicons } from "@expo/vector-icons";
+import { useFonts } from "expo-font";
 import * as NavigationBar from "expo-navigation-bar";
+import { useEffect } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import {
   DarkTheme,
@@ -46,7 +47,9 @@ function RootLayoutContent() {
   const { isDark } = useTheme();
   const { token, loading, user } = useAuth();
   const { addNotification } = useNotifications();
-
+  const [fontsLoaded] = useFonts({
+    ...Ionicons.font,
+  });
   const segments = useSegments();
 
   // 🎯 حماية التنقل
@@ -111,6 +114,13 @@ function RootLayoutContent() {
     }
   }, []);
 
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
   return (
     <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
       <Stack>
