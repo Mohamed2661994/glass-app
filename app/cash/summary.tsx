@@ -26,7 +26,8 @@ type CashInItem = {
   transaction_date: string;
   amount: number;
   paid_amount: number;
-  source_type: "manual" | "invoice";
+  source_type: "manual" | "invoice" | "customer_payment";
+
   customer_name: string; // 👈 ضيف ده
   notes?: string | null; // 👈 الحل هنا
 };
@@ -730,9 +731,33 @@ ${
                   </View>
 
                   <View style={styles.topRow}>
-                    <Text style={[styles.name, { color: colors.text }]}>
-                      {i.customer_name}
-                    </Text>
+                    <View style={{ flex: 2 }}>
+                      <Text style={[styles.name, { color: colors.text }]}>
+                        {i.customer_name}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.typeBadge,
+                          {
+                            backgroundColor:
+                              i.source_type === "invoice"
+                                ? "#7c3aed"
+                                : i.source_type === "customer_payment"
+                                  ? "#14532d"
+                                  : "#1e3a8a",
+                          },
+                        ]}
+                      >
+                        <Text style={styles.typeText}>
+                          {i.source_type === "invoice"
+                            ? "فاتورة"
+                            : i.source_type === "customer_payment"
+                              ? "سداد عميل"
+                              : "وارد يدوي"}
+                        </Text>
+                      </View>
+                    </View>
 
                     <Text style={styles.amountIn}>
                       {i.source_type === "invoice" ? i.paid_amount : i.amount}
@@ -1036,11 +1061,11 @@ const styles = StyleSheet.create({
   },
 
   typeBadge: {
+    marginTop: 4,
+    alignSelf: "flex-start",
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 3,
     borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   typeText: {

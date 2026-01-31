@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
@@ -26,9 +27,23 @@ export default function LowStockReportScreen() {
   const [data, setData] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { user } = useUser();
+
+  const isShowroomUser = user?.branch_id === 1; // معرض
+  const isWarehouseUser = user?.branch_id === 2; // مخزن رئيسي
+  const isBranchUser = !!user?.branch_id;
+
   const [selectedWarehouse, setSelectedWarehouse] = useState<
     "الكل" | "المخزن الرئيسي" | "مخزن المعرض"
   >("الكل");
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.branch_id === 1) setSelectedWarehouse("مخزن المعرض");
+    else if (user.branch_id === 2) setSelectedWarehouse("المخزن الرئيسي");
+    else setSelectedWarehouse("الكل"); // أدمن
+  }, [user]);
 
   const fetchReport = async () => {
     try {
@@ -52,11 +67,24 @@ export default function LowStockReportScreen() {
   };
 
   const filteredData = useMemo(() => {
-    if (selectedWarehouse === "الكل") return data;
-    return data.filter(
-      (item) => item.warehouse_name?.trim() === selectedWarehouse.trim(),
-    );
-  }, [data, selectedWarehouse]);
+    let result = data;
+
+    // قفل حسب صلاحية المستخدم
+    if (isShowroomUser) {
+      result = result.filter((i) => i.warehouse_name === "مخزن المعرض");
+    } else if (isWarehouseUser) {
+      result = result.filter((i) => i.warehouse_name === "المخزن الرئيسي");
+    }
+
+    // فلتر الزر
+    if (selectedWarehouse !== "الكل") {
+      result = result.filter(
+        (item) => item.warehouse_name?.trim() === selectedWarehouse.trim(),
+      );
+    }
+
+    return result;
+  }, [data, selectedWarehouse, user]);
 
   const renderItem = ({ item }: { item: LowStockItem }) => {
     const isCritical = item.current_stock <= 2;
@@ -122,27 +150,43 @@ export default function LowStockReportScreen() {
       <View style={styles.container}>
         {/* فلتر المخزن */}
         <View style={styles.filterRow}>
-          {["الكل", "المخزن الرئيسي", "مخزن المعرض"].map((name) => (
-            <TouchableOpacity
-              key={name}
-              style={[
-                styles.filterBtn,
-                selectedWarehouse === name && styles.activeFilterBtn,
-              ]}
-              onPress={() =>
-                setSelectedWarehouse(name as typeof selectedWarehouse)
-              }
-            >
-              <Text
+          {[
+            ...(!isBranchUser ? ["الكل"] : []),
+
+            {
+              name: "المخزن الرئيسي",
+              disabled: isShowroomUser,
+            },
+            {
+              name: "مخزن المعرض",
+              disabled: isWarehouseUser,
+            },
+          ].map((item) => {
+            const name = typeof item === "string" ? item : item.name;
+            const disabled = typeof item === "string" ? false : item.disabled;
+
+            return (
+              <TouchableOpacity
+                key={name}
+                disabled={disabled}
                 style={[
-                  styles.filterText,
-                  selectedWarehouse === name && styles.activeFilterText,
+                  styles.filterBtn,
+                  selectedWarehouse === name && styles.activeFilterBtn,
+                  disabled && { opacity: 0.4 },
                 ]}
+                onPress={() => setSelectedWarehouse(name as any)}
               >
-                {name}
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.filterText,
+                    selectedWarehouse === name && styles.activeFilterText,
+                  ]}
+                >
+                  {name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* رأس الجدول */}

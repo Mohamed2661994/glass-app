@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -32,6 +33,21 @@ export default function CustomerBalancesReportScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
+  const { user } = useUser();
+  const isBranchUser = !!user?.branch_id;
+  const isShowroomUser = user?.branch_id === 1; // معرض
+  const isWarehouseUser = user?.branch_id === 2; // مخزن رئيسي
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.branch_id === 1) {
+      setWarehouseId("1"); // مخزن المعرض
+    } else if (user.branch_id === 2) {
+      setWarehouseId("2"); // المخزن الرئيسي
+    } else {
+      setWarehouseId(null); // الأدمن
+    }
+  }, [user]);
 
   const [showFromPicker, setShowFromPicker] = useState(false);
   const [showToPicker, setShowToPicker] = useState(false);
@@ -78,6 +94,24 @@ export default function CustomerBalancesReportScreen() {
     const t = setTimeout(fetchReport, 500);
     return () => clearTimeout(t);
   }, [customerSearch, fromDate, toDate, warehouseId]);
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    if (showFromPicker || showToPicker) {
+      setTimeout(() => {
+        const input: any = dateInputRef.current;
+        if (input) {
+          input.focus();
+
+          // يحدد كل النص داخل الحقل
+          if (input.setSelectionRange) {
+            input.setSelectionRange(0, input.value.length);
+          }
+        }
+      }, 100); // مهلة بسيطة عشان المودال يترندر
+    }
+  }, [showFromPicker, showToPicker]);
 
   /* ================== DATE HELPERS ================== */
   const formatDateForAPI = (date: Date) => {
@@ -127,6 +161,18 @@ export default function CustomerBalancesReportScreen() {
   };
 
   const closeDateModal = () => {
+    const parsed = parseDisplayDate(dateInputText);
+
+    if (parsed) {
+      if (showFromPicker) {
+        parsed.setHours(0, 0, 0, 0);
+        setFromDate(parsed);
+      } else if (showToPicker) {
+        parsed.setHours(23, 59, 59, 999);
+        setToDate(parsed);
+      }
+    }
+
     setShowFromPicker(false);
     setShowToPicker(false);
   };
@@ -200,15 +246,27 @@ export default function CustomerBalancesReportScreen() {
       {/* 🏬 فلترة حسب المخزن */}
       <View style={styles.searchRow}>
         {[
-          { id: null, name: "كل المخازن" },
-          { id: "1", name: "مخزن المعرض" },
-          { id: "2", name: "المخزن الرئيسي" },
+          { id: null, name: "كل المخازن", disabled: true }, // محدش يختار الكل
+
+          {
+            id: "2",
+            name: "المخزن الرئيسي",
+            disabled: isShowroomUser, // المعرض ما يشوفش الرئيسي
+          },
+
+          {
+            id: "1",
+            name: "مخزن المعرض",
+            disabled: isWarehouseUser, // المخزن ما يشوفش المعرض
+          },
         ].map((w) => (
           <TouchableOpacity
             key={w.name}
+            disabled={w.disabled}
             style={[
               styles.filterBtn,
               warehouseId === w.id && styles.activeFilterBtn,
+              w.disabled && { opacity: 0.4 },
             ]}
             onPress={() => setWarehouseId(w.id)}
           >
@@ -263,7 +321,15 @@ export default function CustomerBalancesReportScreen() {
             setCustomerSearch("");
             setFromDate(null);
             setToDate(null);
-            setWarehouseId(null);
+
+            // رجّع الفلتر الافتراضي حسب نوع المستخدم
+            if (user?.branch_id === 1) {
+              setWarehouseId("1"); // مخزن المعرض
+            } else if (user?.branch_id === 2) {
+              setWarehouseId("2"); // المخزن الرئيسي
+            } else {
+              setWarehouseId(null); // الأدمن فقط
+            }
           }}
         >
           <Text style={styles.clearBtnText}>مسح الفلترة</Text>
@@ -389,6 +455,8 @@ export default function CustomerBalancesReportScreen() {
               placeholder="dd/mm/yyyy"
               keyboardType="numeric"
               onChangeText={handleDateTextChange}
+              onSubmitEditing={closeDateModal} // ✅ Enter = تم
+              blurOnSubmit={false}
               style={styles.webInput}
             />
 

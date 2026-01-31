@@ -1,3 +1,5 @@
+import { useAuth } from "@/components/context/AuthContext";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -17,7 +19,6 @@ import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack, router } from "expo-router";
-import React, { useEffect, useState } from "react";
 import { LayoutAnimation, UIManager } from "react-native";
 
 type Invoice = {
@@ -53,6 +54,7 @@ export default function InvoicesPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelTargetId, setCancelTargetId] = useState<number | null>(null);
   const [dailySummary, setDailySummary] = useState<Record<string, number>>({});
+  const { user } = useAuth();
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<number | null>(null);
@@ -62,6 +64,9 @@ export default function InvoicesPage() {
   const [filteredTransfers, setFilteredTransfers] = useState<StockTransfer[]>(
     [],
   );
+  const [dateInputText, setDateInputText] = useState("");
+  const dateInputRef = useRef<TextInput>(null);
+  const hiddenDateInputRef = useRef<HTMLInputElement | null>(null);
 
   const [invoiceScope, setInvoiceScope] = useState<InvoiceScope>("");
   const [filterCustomer, setFilterCustomer] = useState("");
@@ -322,14 +327,105 @@ export default function InvoicesPage() {
     }
   };
 
-  //useEffect(() => {
-  //  fetchInvoices()
-  // }, [])
-
   const confirmDelete = (invoiceId: number) => {
     setInvoiceToDelete(invoiceId);
     setShowDeleteModal(true);
   };
+
+  const formatDateArabic = (date: Date | null) => {
+    if (!date) return "";
+
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+
+    return `${day} / ${month} / ${year}`;
+  };
+  const formatDisplayDate = (date: Date | null) => {
+    if (!date) return "";
+    const d = String(date.getDate()).padStart(2, "0");
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  };
+
+  const parseDisplayDate = (text: string) => {
+    const parts = text.split("/");
+    if (parts.length !== 3) return null;
+
+    const day = Number(parts[0]);
+    const month = Number(parts[1]);
+    const year = Number(parts[2]);
+
+    if (!day || !month || !year) return null;
+
+    const date = new Date(year, month - 1, day);
+    if (isNaN(date.getTime())) return null;
+
+    return date;
+  };
+  const handleDateTextChange = (input: string) => {
+    let digits = input.replace(/\D/g, "");
+    if (digits.length > 8) digits = digits.slice(0, 8);
+
+    let formatted = digits;
+
+    if (digits.length > 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    } else if (digits.length > 2) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    }
+
+    setDateInputText(formatted);
+
+    if (formatted.length === 10) {
+      const parsed = parseDisplayDate(formatted);
+      if (!parsed) return;
+
+      if (activeDateType === "from") {
+        parsed.setHours(0, 0, 0, 0);
+        setFilterFromDate(parsed);
+      } else {
+        parsed.setHours(23, 59, 59, 999);
+        setFilterToDate(parsed);
+      }
+    }
+  };
+
+  const confirmWebDate = () => {
+    if (dateInputText.length !== 10) return;
+
+    const parsed = parseDisplayDate(dateInputText);
+    if (!parsed) return;
+
+    if (activeDateType === "from") {
+      parsed.setHours(0, 0, 0, 0);
+      setFilterFromDate(parsed);
+    } else {
+      parsed.setHours(23, 59, 59, 999);
+      setFilterToDate(parsed);
+    }
+
+    setShowFromPicker(false);
+    setShowToPicker(false);
+    setActiveDateType(null);
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+
+    if (showFromPicker || showToPicker) {
+      setTimeout(() => {
+        const input = dateInputRef.current as any;
+        input?.focus();
+
+        // 👇 يعمل تحديد لكل النص
+        if (input?.setSelectionRange) {
+          input.setSelectionRange(0, dateInputText.length);
+        }
+      }, 120);
+    }
+  }, [showFromPicker, showToPicker]);
 
   return (
     <>
@@ -385,46 +481,49 @@ export default function InvoicesPage() {
             borderColor: colors.border,
           }}
         >
-          <Text style={{ color: colors.muted, marginBottom: 6 }}>
-            اختر نوع الفواتير
-          </Text>
+          {/* 🏬 فواتير القطاعي — للمعرض فقط */}
+          {user?.branch_id === 1 && (
+            <Pressable
+              onPress={() => {
+                setInvoiceScope("retail");
+                fetchInvoices("retail");
+              }}
+              style={{
+                backgroundColor:
+                  invoiceScope === "retail" ? colors.success : colors.botmf,
+                padding: 12,
+                borderRadius: 10,
+                marginBottom: 8,
+              }}
+            >
+              <Text style={{ color: colors.text, textAlign: "center" }}>
+                🏬 فواتير المعرض (قطاعي)
+              </Text>
+            </Pressable>
+          )}
 
-          <Pressable
-            onPress={() => {
-              setInvoiceScope("retail");
-              fetchInvoices("retail");
-            }}
-            style={{
-              backgroundColor:
-                invoiceScope === "retail" ? colors.success : colors.botmf,
-              padding: 12,
-              borderRadius: 10,
-              marginBottom: 8,
-            }}
-          >
-            <Text style={{ color: colors.text, textAlign: "center" }}>
-              🏬 فواتير المعرض (قطاعي)
-            </Text>
-          </Pressable>
+          {/* 📦 فواتير الجملة — للمخزن فقط */}
+          {user?.branch_id === 2 && (
+            <Pressable
+              onPress={() => {
+                setInvoiceScope("wholesale");
+                fetchInvoices("wholesale");
+              }}
+              style={{
+                backgroundColor:
+                  invoiceScope === "wholesale" ? colors.success : colors.botmf,
+                padding: 12,
+                borderRadius: 10,
+                marginBottom: 8,
+              }}
+            >
+              <Text style={{ color: colors.text, textAlign: "center" }}>
+                📦 فواتير المخزن (جملة)
+              </Text>
+            </Pressable>
+          )}
 
-          <Pressable
-            onPress={() => {
-              setInvoiceScope("wholesale");
-              fetchInvoices("wholesale");
-            }}
-            style={{
-              backgroundColor:
-                invoiceScope === "wholesale" ? colors.success : colors.botmf,
-              padding: 12,
-              borderRadius: 10,
-              marginBottom: 8,
-            }}
-          >
-            <Text style={{ color: colors.text, textAlign: "center" }}>
-              📦 فواتير المخزن (جملة)
-            </Text>
-          </Pressable>
-
+          {/* 🔁 فواتير التحويل — للكل */}
           <Pressable
             onPress={() => {
               const today = new Date();
@@ -574,6 +673,7 @@ export default function InvoicesPage() {
                 <Pressable
                   onPress={() => {
                     setActiveDateType("from");
+                    setDateInputText(formatDisplayDate(filterFromDate));
                     setShowFromPicker(true);
                   }}
                   style={{
@@ -583,13 +683,16 @@ export default function InvoicesPage() {
                   }}
                 >
                   <Text style={{ color: colors.text, textAlign: "center" }}>
-                    {filterFromDate ? formatDate(filterFromDate) : "من تاريخ"}
+                    {filterFromDate
+                      ? formatDateArabic(filterFromDate)
+                      : "من تاريخ"}
                   </Text>
                 </Pressable>
 
                 <Pressable
                   onPress={() => {
                     setActiveDateType("to");
+                    setDateInputText(formatDisplayDate(filterToDate));
                     setShowToPicker(true);
                   }}
                   style={{
@@ -599,7 +702,9 @@ export default function InvoicesPage() {
                   }}
                 >
                   <Text style={{ color: colors.text, textAlign: "center" }}>
-                    {filterToDate ? formatDate(filterToDate) : "إلى تاريخ"}
+                    {filterToDate
+                      ? formatDateArabic(filterToDate)
+                      : "إلى تاريخ"}
                   </Text>
                 </Pressable>
               </View>
@@ -1006,30 +1111,6 @@ export default function InvoicesPage() {
         />
       )}
 
-      {Platform.OS === "web" && showFromPicker && (
-        <input
-          type="date"
-          value={filterFromDate ? formatDate(filterFromDate) : ""}
-          onChange={(e) => {
-            if (e.target.value) {
-              setFilterFromDate(new Date(e.target.value));
-            }
-            setShowFromPicker(false);
-          }}
-        />
-      )}
-      {Platform.OS === "web" && showToPicker && (
-        <input
-          type="date"
-          value={filterToDate ? formatDate(filterToDate) : ""}
-          onChange={(e) => {
-            if (e.target.value) {
-              setFilterToDate(new Date(e.target.value));
-            }
-            setShowToPicker(false);
-          }}
-        />
-      )}
       {(showFromPicker || showToPicker) && (
         <View
           style={{
@@ -1098,44 +1179,72 @@ export default function InvoicesPage() {
 
             {/* ===== Web ===== */}
             {Platform.OS === "web" && (
-              <input
-                type="date"
-                autoFocus
-                value={
-                  activeDateType === "from"
-                    ? formatDate(filterFromDate)
-                    : formatDate(filterToDate)
-                }
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  const d = new Date(e.target.value);
+              <View style={{ position: "relative", marginBottom: 16 }}>
+                <TextInput
+                  ref={dateInputRef}
+                  value={dateInputText}
+                  placeholder="dd/mm/yyyy"
+                  keyboardType="numeric"
+                  onChangeText={handleDateTextChange}
+                  maxLength={10}
+                  returnKeyType="done"
+                  blurOnSubmit={false}
+                  onSubmitEditing={confirmWebDate} // 👈 دي أهم إضافة
+                  style={{
+                    width: "100%",
+                    padding: 12,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: "#334155",
+                    backgroundColor: colors.input,
+                    color: colors.text,
+                    textAlign: "center",
+                    fontSize: 16,
+                  }}
+                />
 
-                  if (activeDateType === "from") {
-                    setFilterFromDate(d);
-                  } else {
-                    setFilterToDate(d);
+                <input
+                  ref={hiddenDateInputRef}
+                  type="date"
+                  style={{
+                    position: "absolute",
+                    opacity: 0,
+                    width: 0,
+                    height: 0,
+                  }}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [y, m, d] = e.target.value.split("-").map(Number);
+                    const newDate = new Date(y, m - 1, d);
+
+                    setDateInputText(formatDisplayDate(newDate));
+
+                    if (activeDateType === "from") {
+                      newDate.setHours(0, 0, 0, 0);
+                      setFilterFromDate(newDate);
+                    } else {
+                      newDate.setHours(23, 59, 59, 999);
+                      setFilterToDate(newDate);
+                    }
+                  }}
+                />
+
+                <Pressable
+                  onPress={() =>
+                    hiddenDateInputRef.current?.showPicker?.() ||
+                    hiddenDateInputRef.current?.click()
                   }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    // 👇 نفس زر "تم"
-                    setShowFromPicker(false);
-                    setShowToPicker(false);
-                    setActiveDateType(null);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  alignSelf: "center",
-                  borderRadius: 10,
-                  border: "1px solid #1e293b",
-                  backgroundColor: "#dfe5f0",
-                  color: colors.text,
-                  textAlign: "center",
-                  fontSize: 15,
-                }}
-              />
+                  style={{
+                    position: "absolute",
+                    right: 10,
+                    top: 0,
+                    bottom: 0,
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#94a3b8" />
+                </Pressable>
+              </View>
             )}
 
             {/* ===== الأزرار ===== */}

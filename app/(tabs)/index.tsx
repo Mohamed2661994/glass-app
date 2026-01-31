@@ -178,6 +178,22 @@ export default function HomeScreen() {
   }, []);
 
   const numColumns = SCREEN_WIDTH < 600 ? 2 : SCREEN_WIDTH < 1000 ? 3 : 4;
+  // ✅ فلترة الكروت حسب صلاحيات الفرع
+  const filteredCards = CARDS.filter((card) => {
+    if (!user) return false;
+
+    // فرع المعرض (1)
+    if (user.branch_id === 1) {
+      return true;
+    }
+
+    // فرع المخزن (2)
+    if (user.branch_id === 2) {
+      return card.title !== "فاتورة قطاعي";
+    }
+
+    return true;
+  });
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -353,7 +369,7 @@ export default function HomeScreen() {
               ? Array.from({ length: 6 }).map((_, i) => (
                   <SkeletonCard key={i} />
                 ))
-              : CARDS.map((card, index) => (
+              : filteredCards.map((card, index) => (
                   <AnimatedCard
                     key={card.title}
                     card={card}

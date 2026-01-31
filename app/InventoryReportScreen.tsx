@@ -1,3 +1,4 @@
+import { useAuth } from "@/components/context/AuthContext";
 import BackButton from "@/components/ui/BackButton";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,12 +26,16 @@ type InventoryItem = {
 };
 
 export default function InventoryReportScreen() {
+  const { user } = useAuth();
+  const isShowroomUser = user?.branch_id === 1; // المعرض
+  const isWarehouseUser = user?.branch_id === 2; // المخزن
+
   const [data, setData] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedWarehouse, setSelectedWarehouse] = useState<
     "الكل" | "المخزن الرئيسي" | "مخزن المعرض"
-  >("الكل");
+  >(user?.branch_id === 1 ? "مخزن المعرض" : "المخزن الرئيسي");
 
   const fetchReport = async () => {
     try {
@@ -138,24 +143,38 @@ export default function InventoryReportScreen() {
       <View style={styles.container}>
         {/* فلتر المخزن */}
         <View style={styles.filterRow}>
-          {["الكل", "المخزن الرئيسي", "مخزن المعرض"].map((name) => (
+          {[
+            { label: "الكل", value: "الكل", disabled: true },
+
+            {
+              label: "المخزن الرئيسي",
+              value: "المخزن الرئيسي",
+              disabled: isShowroomUser, // 👈 المعرض ممنوع يشوفه
+            },
+
+            {
+              label: "مخزن المعرض",
+              value: "مخزن المعرض",
+              disabled: isWarehouseUser, // 👈 المخزن ممنوع يشوفه
+            },
+          ].map((item) => (
             <TouchableOpacity
-              key={name}
+              key={item.value}
+              disabled={item.disabled}
               style={[
                 styles.filterBtn,
-                selectedWarehouse === name && styles.activeFilterBtn,
+                selectedWarehouse === item.value && styles.activeFilterBtn,
+                item.disabled && { opacity: 0.4 }, // 👈 شكل باهت لما يكون ممنوع
               ]}
-              onPress={() =>
-                setSelectedWarehouse(name as typeof selectedWarehouse)
-              }
+              onPress={() => setSelectedWarehouse(item.value as any)}
             >
               <Text
                 style={[
                   styles.filterText,
-                  selectedWarehouse === name && styles.activeFilterText,
+                  selectedWarehouse === item.value && styles.activeFilterText,
                 ]}
               >
-                {name}
+                {item.label}
               </Text>
             </TouchableOpacity>
           ))}

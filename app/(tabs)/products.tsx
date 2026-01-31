@@ -291,7 +291,14 @@ export default function ProductsScreen() {
       {/* ===== Web Row (Form + List) ===== */}
       <View style={styles.webRow}>
         {/* ===== Add / Edit ===== */}
-        <ThemedView style={[styles.card, { backgroundColor: colors.card }]}>
+        <ThemedView
+          style={[
+            styles.card,
+            editingId !== null && styles.editingCard,
+
+            { backgroundColor: colors.card },
+          ]}
+        >
           <ThemedText
             style={[
               styles.cardTitle,
@@ -522,7 +529,14 @@ export default function ProductsScreen() {
         </ThemedView>
 
         {/* ===== List ===== */}
-        <ThemedView style={[styles.listCard, { backgroundColor: colors.card }]}>
+        <ThemedView
+          style={[
+            styles.card,
+            editingId !== null && styles.editingCard,
+
+            { backgroundColor: colors.card },
+          ]}
+        >
           <ThemedText style={{ color: colors.text, marginBottom: 8 }}>
             قائمة الأصناف
           </ThemedText>
@@ -545,6 +559,16 @@ export default function ProductsScreen() {
 
             {loading ? (
               <ActivityIndicator style={{ marginTop: 20 }} />
+            ) : filtered.length === 0 ? (
+              <ThemedText
+                style={{
+                  color: colors.muted,
+                  textAlign: "center",
+                  marginTop: 30,
+                }}
+              >
+                لا توجد أصناف
+              </ThemedText>
             ) : (
               <View style={styles.grid}>
                 {filtered.map((item) => (
@@ -1067,13 +1091,16 @@ const styles = StyleSheet.create({
     gap: 10,
     ...(Platform.OS === "web"
       ? {
-          width: 360, // 👈 للفورم
+          width: 700, // 👈 للفورم
         }
       : {
           width: "100%", // 👈 للموبيل
         }),
   },
-
+  editingCard: {
+    borderColor: "#f2c94c",
+    borderWidth: 2,
+  },
   listCard: {
     borderRadius: 12,
     padding: 7,
@@ -1271,7 +1298,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
 
     ...(Platform.OS === "web"
-      ? { width: "48%" } // 👈 كارتين
+      ? { width: "calc(50% - 6px)" as any } // 👈 توزيع مظبوط
       : { width: "100%" }),
   },
 

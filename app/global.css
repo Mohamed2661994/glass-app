@@ -1,0 +1,21 @@
+/* إزالة الإطار الأزرق من حقول الإدخال */
+input:focus,
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #0f172a;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* 🚨 ده المهم */
+}

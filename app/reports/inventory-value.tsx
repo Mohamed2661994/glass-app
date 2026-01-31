@@ -1,9 +1,10 @@
 import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
+import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Picker } from "@react-native-picker/picker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView } from "react-native";
 
 import { StyleSheet } from "react-native";
@@ -34,8 +35,24 @@ export default function InventoryValueReport() {
   const isIOS = Platform.OS === "ios";
   const [manufacturerModalVisible, setManufacturerModalVisible] =
     useState(false);
+  const { user } = useUser();
+
+  const isShowroomUser = user?.branch_id === 1; // معرض
+  const isWarehouseUser = user?.branch_id === 2; // مخزن رئيسي
+  const isBranchUser = !!user?.branch_id;
 
   const [warehouseFilter, setWarehouseFilter] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.branch_id === 1)
+      setWarehouseFilter(2); // مخزن المعرض
+    else if (user.branch_id === 2)
+      setWarehouseFilter(1); // المخزن الرئيسي
+    else setWarehouseFilter(null); // أدمن
+  }, [user]);
+
   const router = useRouter();
 
   const [manufacturers, setManufacturers] = useState<string[]>([]);
@@ -133,18 +150,30 @@ export default function InventoryValueReport() {
           {/* 🔘 الفلترة */}
           <View style={styles.filterRow}>
             {[
-              { id: null, name: "كل المخازن" },
-              { id: 1, name: "المخزن الرئيسي" },
-              { id: 2, name: "مخزن المعرض" },
+              ...(!isBranchUser ? [{ id: null, name: "كل المخازن" }] : []),
+
+              {
+                id: 1,
+                name: "المخزن الرئيسي",
+                disabled: isShowroomUser, // المعرض ما يشوفوش
+              },
+
+              {
+                id: 2,
+                name: "مخزن المعرض",
+                disabled: isWarehouseUser, // المخزن ما يشوفوش
+              },
             ].map((w) => (
               <TouchableOpacity
                 key={w.name}
+                disabled={w.disabled}
                 style={[
                   styles.filterBtn,
                   {
                     backgroundColor:
                       warehouseFilter === w.id ? colors.primary : colors.card,
                     borderColor: colors.border,
+                    opacity: w.disabled ? 0.4 : 1,
                   },
                 ]}
                 onPress={() => setWarehouseFilter(w.id)}
@@ -299,7 +328,9 @@ export default function InventoryValueReport() {
                 router.push({
                   pathname: "/reports/inventory-print",
                   params: {
-                    warehouse_id: warehouseFilter ?? "",
+                    warehouse_id: isBranchUser
+                      ? (warehouseFilter ?? "")
+                      : (warehouseFilter ?? ""),
                     manufacturer: manufacturerFilter ?? "",
                   },
                 })

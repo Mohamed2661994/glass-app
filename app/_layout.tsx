@@ -9,17 +9,17 @@ import GlobalNotification, {
 } from "@/components/GlobalNotification";
 import { socket } from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
-import { useFonts } from "expo-font";
-import * as NavigationBar from "expo-navigation-bar";
-import { useEffect } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-
 import {
   DarkTheme,
   DefaultTheme,
   ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
+import { useFonts } from "expo-font";
+import * as NavigationBar from "expo-navigation-bar";
+import { useEffect } from "react";
+import { ActivityIndicator, Platform, View } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import "./global.css";
 
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -74,7 +74,7 @@ function RootLayoutContent() {
 
     socket.emit("register_user", {
       user_id: user.id,
-      branch_id: user.branch_id,
+      //branch_id: user.branch_id,
     });
 
     const handleNotification = (data: any) => {

@@ -1,4 +1,5 @@
 import BackButton from "@/components/ui/BackButton";
+import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -56,7 +57,22 @@ export default function ProductMovementReportScreen() {
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [productName, setProductName] = useState("");
   const [partyName, setPartyName] = useState(""); // ✅ فلترة العميل
+  const { user } = useUser();
+
+  const isShowroomUser = user?.branch_id === 1; // معرض
+  const isWarehouseUser = user?.branch_id === 2; // مخزن رئيسي
+  const isBranchUser = !!user?.branch_id;
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+
+    if (user.branch_id === 1)
+      setWarehouseId("1"); // جرد المعرض
+    else if (user.branch_id === 2)
+      setWarehouseId("2"); // جرد المخزن
+    else setWarehouseId(null); // أدمن
+  }, [user]);
+
   const [selectedProductName, setSelectedProductName] = useState("");
   const [dateInputText, setDateInputText] = useState("");
 
@@ -245,11 +261,24 @@ export default function ProductMovementReportScreen() {
   const clearFilters = () => {
     setProductName("");
     setPartyName("");
-    setWarehouseId(null);
-    setFromDate(null);
-    setToDate(null);
     setSelectedProductName("");
     setData([]);
+
+    // رجّع المخزن حسب صلاحية المستخدم
+    if (user?.branch_id === 1) setWarehouseId("1");
+    else if (user?.branch_id === 2) setWarehouseId("2");
+    else setWarehouseId(null);
+
+    // التاريخ يرجع لليوم
+    const today = new Date();
+    const from = new Date(today);
+    from.setHours(0, 0, 0, 0);
+
+    const to = new Date(today);
+    to.setHours(23, 59, 59, 999);
+
+    setFromDate(from);
+    setToDate(to);
   };
 
   /* ================== DATE INPUT (WEB STYLE) ================== */
@@ -367,15 +396,27 @@ export default function ProductMovementReportScreen() {
       {/* 🏬 فلترة المخزن */}
       <View style={styles.filterRow}>
         {[
-          { id: null, name: "كل المخازن" },
-          { id: "2", name: "جرد المخزن" },
-          { id: "1", name: "جرد المعرض" },
+          ...(!isBranchUser ? [{ id: null, name: "كل المخازن" }] : []),
+
+          {
+            id: "2",
+            name: "جرد المخزن",
+            disabled: isShowroomUser, // المعرض ما يشوفوش
+          },
+
+          {
+            id: "1",
+            name: "جرد المعرض",
+            disabled: isWarehouseUser, // المخزن ما يشوفوش
+          },
         ].map((w) => (
           <TouchableOpacity
             key={w.name}
+            disabled={w.disabled}
             style={[
               styles.filterBtn,
               warehouseId === w.id && styles.activeFilterBtn,
+              w.disabled && { opacity: 0.4 },
             ]}
             onPress={() => setWarehouseId(w.id)}
           >
