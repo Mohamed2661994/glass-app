@@ -1,8 +1,8 @@
 import { useTheme } from "@/components/context/theme-context";
+import DateFieldFT from "@/components/date/DateRangeField";
 import BackButton from "@/components/ui/BackButton";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 
 import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { Platform } from "react-native";
 
 import {
   ActivityIndicator,
+  Alert,
   FlatList, // 👈 أضف السطر ده
   Modal,
   Pressable,
@@ -17,7 +18,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { Alert } from "react-native/Libraries/Alert/Alert";
 
 type CashInItem = {
   id: number;
@@ -42,7 +42,6 @@ export default function CashInList() {
 
   const [showToPicker, setShowToPicker] = useState(false);
   const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [data, setData] = useState<CashInItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -58,10 +57,11 @@ export default function CashInList() {
     "all" | "manual" | "invoice" | "customer_payment"
   >("all");
 
-  const formatDate = (date: string) => {
-    const [y, m, d] = date.split("-");
-    return `${d}/${m}/${y}`;
+  const formatDate = (dateStr: string) => {
+    const parts = dateStr.substring(0, 10).split("-");
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
   };
+
   const today = new Date();
   today.setHours(0, 0, 0, 0); // بداية اليوم
 
@@ -123,8 +123,14 @@ export default function CashInList() {
     const matchType = filterType === "all" || item.source_type === filterType;
 
     const parseLocalDate = (dateStr: string) => {
-      const [y, m, d] = dateStr.slice(0, 10).split("-");
-      return new Date(Number(y), Number(m) - 1, Number(d), 12);
+      const parts = dateStr.substring(0, 10).split("-"); // ناخد YYYY-MM-DD بس
+      const y = Number(parts[0]);
+      const m = Number(parts[1]) - 1;
+      const d = Number(parts[2]);
+
+      const localDate = new Date(y, m, d);
+      localDate.setHours(12, 0, 0, 0); // نخليه نص اليوم عشان نتفادى أي فرق توقيت
+      return localDate;
     };
 
     const itemDate = parseLocalDate(item.transaction_date);
@@ -582,42 +588,27 @@ export default function CashInList() {
 
               {/* Date filter */}
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <Pressable
-                  onPress={() => {
-                    setShowFromPicker(true);
+                <DateFieldFT
+                  label="من تاريخ"
+                  value={fromDate}
+                  onChange={(date) => {
+                    const d = new Date(date);
+                    d.setHours(0, 0, 0, 0);
+                    setFromDate(d);
                   }}
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    borderRadius: 10,
-                    backgroundColor: colors.input,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <Text style={{ color: colors.text, textAlign: "center" }}>
-                    من: {fromDate ? fromDate.toLocaleDateString("EG") : "--"}
-                  </Text>
-                </Pressable>
+                />
 
-                <Pressable
-                  onPress={() => {
-                    setShowToPicker(true);
+                <DateFieldFT
+                  label="إلى تاريخ"
+                  value={toDate}
+                  onChange={(date) => {
+                    const d = new Date(date);
+                    d.setHours(23, 59, 59, 999);
+                    setToDate(d);
                   }}
-                  style={{
-                    flex: 1,
-                    padding: 12,
-                    borderRadius: 10,
-                    backgroundColor: colors.input,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <Text style={{ color: colors.text, textAlign: "center" }}>
-                    إلى: {toDate ? toDate.toLocaleDateString("EG") : "--"}
-                  </Text>
-                </Pressable>
+                />
               </View>
+
               <Pressable
                 onPress={() => {
                   setFromDate(null);
@@ -729,242 +720,6 @@ export default function CashInList() {
           </View>
         </View>
       </Modal>
-
-      {/* ANDROID FROM */}
-      {showFromPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={fromDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowFromPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(0, 0, 0, 0);
-              setFromDate(d);
-            }
-          }}
-        />
-      )}
-
-      {/* ANDROID TO */}
-      {showToPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={toDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowToPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(23, 59, 59, 999);
-              setToDate(d);
-            }
-          }}
-        />
-      )}
-
-      {Platform.OS === "ios" && (showFromPicker || showToPicker) && (
-        <Modal transparent animationType="fade">
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.4)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: colors.card,
-                marginHorizontal: 20,
-                borderRadius: 12,
-                padding: 16,
-                width: "90%",
-                maxWidth: 360,
-              }}
-            >
-              <DateTimePicker
-                value={(showFromPicker ? fromDate : toDate) || new Date()}
-                mode="date"
-                display="spinner"
-                textColor={colors.text}
-                onChange={(event, selectedDate) => {
-                  if (!selectedDate) return;
-
-                  if (showFromPicker) {
-                    const d = new Date(selectedDate);
-                    d.setHours(0, 0, 0, 0);
-                    setFromDate(d);
-                  } else {
-                    const d = new Date(selectedDate);
-                    d.setHours(23, 59, 59, 999);
-                    setToDate(d);
-                  }
-                }}
-              />
-
-              <Pressable
-                onPress={() => {
-                  setShowFromPicker(false);
-                  setShowToPicker(false);
-                }}
-                style={{
-                  marginTop: 12,
-                  backgroundColor: colors.primary,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#fff",
-                    textAlign: "center",
-                    fontWeight: "600",
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {Platform.OS === "web" && (showFromPicker || showToPicker) && (
-        <View
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.65)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.card,
-              padding: 20,
-              borderRadius: 16,
-              width: 320,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: "700",
-                textAlign: "center",
-                marginBottom: 12,
-              }}
-            >
-              {showFromPicker ? "اختر تاريخ البداية" : "اختر تاريخ النهاية"}
-            </Text>
-
-            <View style={{ position: "relative", marginBottom: 16 }}>
-              <TextInput
-                ref={dateInputRef}
-                value={dateInputText}
-                placeholder="dd/mm/yyyy"
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-                onChangeText={handleDateTextChange}
-                maxLength={10}
-                returnKeyType="done"
-                onSubmitEditing={closeDateModal} // 👈 أهم سطر
-                blurOnSubmit={false}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  paddingRight: 40, // مساحة للأيقونة
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.input,
-                  color: colors.text,
-                  fontSize: 16,
-                  textAlign: "center",
-                }}
-              />
-              <input
-                ref={hiddenDateInputRef}
-                type="date"
-                style={{
-                  position: "absolute",
-                  opacity: 0,
-                  pointerEvents: "none",
-                  width: 0,
-                  height: 0,
-                }}
-                onChange={(e) => {
-                  if (!e.target.value) return;
-
-                  const [y, m, d] = e.target.value.split("-").map(Number);
-                  const newDate = new Date(y, m - 1, d);
-
-                  const formatted = formatDisplayDate(newDate);
-                  setDateInputText(formatted);
-
-                  if (showFromPicker) {
-                    newDate.setHours(0, 0, 0, 0);
-                    setFromDate(newDate);
-                  } else {
-                    newDate.setHours(23, 59, 59, 999);
-                    setToDate(newDate);
-                  }
-                }}
-              />
-
-              {/* أيقونة الكالندر */}
-              <Pressable
-                onPress={() =>
-                  hiddenDateInputRef.current?.showPicker?.() ||
-                  hiddenDateInputRef.current?.click()
-                }
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: 0,
-                  bottom: 0,
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={colors.muted}
-                />
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={closeDateModal}
-              style={{
-                width: "100%",
-                paddingVertical: 12,
-                borderRadius: 10,
-                backgroundColor: colors.primary,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  textAlign: "center",
-                  fontWeight: "600",
-                }}
-              >
-                تم
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
 
       {Platform.OS === "web" && showWebCalendar && (
         <input

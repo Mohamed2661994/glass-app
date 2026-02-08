@@ -1,8 +1,9 @@
+import { useTheme } from "@/components/context/theme-context";
+import DateFieldFT from "@/components/date/DateRangeField";
 import BackButton from "@/components/ui/BackButton";
 import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 
@@ -10,7 +11,6 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -40,14 +40,10 @@ export default function ProductMovementReportScreen() {
   const [data, setData] = useState<MovementItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
-  const hiddenDateInputRef = useRef<HTMLInputElement | null>(null);
+
   const listRef = useRef<FlatList>(null);
-  const dateInputRef = useRef<any>(null);
-  const [webPickerTarget, setWebPickerTarget] = useState<"from" | "to" | null>(
-    null,
-  );
+  const { colors } = useTheme();
+
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
 
@@ -74,7 +70,6 @@ export default function ProductMovementReportScreen() {
   }, [user]);
 
   const [selectedProductName, setSelectedProductName] = useState("");
-  const [dateInputText, setDateInputText] = useState("");
 
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(productSearch.toLowerCase()),
@@ -124,29 +119,6 @@ export default function ProductMovementReportScreen() {
     setToDate(to);
   }, []);
 
-  const handleDateTextChange = (input: string) => {
-    let digits = input.replace(/\D/g, "").slice(0, 8);
-    let formatted = digits;
-    if (digits.length > 4)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-
-    setDateInputText(formatted);
-
-    if (formatted.length === 10) {
-      const parsed = parseDisplayDate(formatted);
-      if (!parsed) return;
-
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-  };
   // ✅ البحث التلقائي مع Delay بسيط
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
@@ -250,14 +222,6 @@ export default function ProductMovementReportScreen() {
     );
   };
 
-  const openWebDate = (type: "from" | "to") => {
-    setWebPickerTarget(type);
-    setTimeout(() => {
-      hiddenDateInputRef.current?.showPicker?.() ||
-        hiddenDateInputRef.current?.click();
-    }, 50);
-  };
-
   const clearFilters = () => {
     setProductName("");
     setPartyName("");
@@ -280,39 +244,6 @@ export default function ProductMovementReportScreen() {
     setFromDate(from);
     setToDate(to);
   };
-
-  /* ================== DATE INPUT (WEB STYLE) ================== */
-
-  const formatDisplayDate = (date: Date | null) => {
-    if (!date) return "";
-    const d = String(date.getDate()).padStart(2, "0");
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
-  };
-
-  const parseDisplayDate = (text: string) => {
-    const [d, m, y] = text.split("/").map(Number);
-    if (!d || !m || !y) return null;
-    const dt = new Date(y, m - 1, d);
-    return isNaN(dt.getTime()) ? null : dt;
-  };
-
-  const closeDateModal = () => {
-    setShowFromPicker(false);
-    setShowToPicker(false);
-  };
-
-  useEffect(() => {
-    if (Platform.OS === "web" && (showFromPicker || showToPicker)) {
-      setTimeout(() => {
-        const input = dateInputRef.current;
-
-        if (input?.focus) input.focus();
-        if (input?.select) input.select(); // ✅ يحدد النص كله في الويب
-      }, 50);
-    }
-  }, [showFromPicker, showToPicker]);
 
   return (
     <View style={styles.container}>
@@ -367,30 +298,28 @@ export default function ProductMovementReportScreen() {
       </View>
 
       {/* 📅 فلترة التاريخ */}
-      <View style={styles.searchRow}>
-        <TouchableOpacity
-          style={styles.dateInput}
-          onPress={() => {
-            setDateInputText(formatDisplayDate(fromDate));
-            setShowFromPicker(true);
-          }}
-        >
-          <Text style={styles.dateText}>
-            📅 {fromDate ? formatDateForAPI(fromDate) : "من تاريخ"}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.dateFilterBox}>
+        <View style={styles.dateRow}>
+          <DateFieldFT
+            label="من تاريخ"
+            value={fromDate}
+            onChange={(date) => {
+              const d = new Date(date);
+              d.setHours(0, 0, 0, 0);
+              setFromDate(d);
+            }}
+          />
 
-        <TouchableOpacity
-          style={styles.dateInput}
-          onPress={() => {
-            setDateInputText(formatDisplayDate(toDate));
-            setShowToPicker(true);
-          }}
-        >
-          <Text style={styles.dateText}>
-            📅 {toDate ? formatDateForAPI(toDate) : "إلى تاريخ"}
-          </Text>
-        </TouchableOpacity>
+          <DateFieldFT
+            label="إلى تاريخ"
+            value={toDate}
+            onChange={(date) => {
+              const d = new Date(date);
+              d.setHours(23, 59, 59, 999);
+              setToDate(d);
+            }}
+          />
+        </View>
       </View>
 
       {/* 🏬 فلترة المخزن */}
@@ -466,153 +395,6 @@ export default function ProductMovementReportScreen() {
             }
             contentContainerStyle={{ paddingBottom: 40 }}
           />
-        </View>
-      )}
-
-      {/* ANDROID FROM */}
-      {showFromPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={fromDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowFromPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(0, 0, 0, 0);
-              setFromDate(d);
-            }
-          }}
-        />
-      )}
-
-      {/* ANDROID TO */}
-      {showToPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={toDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowToPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(23, 59, 59, 999);
-              setToDate(d);
-            }
-          }}
-        />
-      )}
-
-      {Platform.OS === "ios" && (showFromPicker || showToPicker) && (
-        <Modal transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <View style={styles.iosPickerWrapper}>
-                <DateTimePicker
-                  value={(showFromPicker ? fromDate : toDate) || new Date()}
-                  mode="date"
-                  display="spinner"
-                  themeVariant="light" // 👈 يخلي الأرقام سوداء مش بيضا
-                  textColor="#000000" // 👈 مهم جدًا
-                  onChange={(event, selectedDate) => {
-                    if (!selectedDate) return;
-
-                    const d = new Date(selectedDate);
-                    if (showFromPicker) {
-                      d.setHours(0, 0, 0, 0);
-                      setFromDate(d);
-                    } else {
-                      d.setHours(23, 59, 59, 999);
-                      setToDate(d);
-                    }
-                  }}
-                  style={{ backgroundColor: "#ffffff" }} // 👈 يخلي خلفية العجلة بيضا
-                />
-              </View>
-
-              <Pressable
-                onPress={() => {
-                  setShowFromPicker(false);
-                  setShowToPicker(false);
-                }}
-                style={styles.modalBtn}
-              >
-                <Text
-                  style={{
-                    color: "#ffffff",
-                    textAlign: "center",
-                    fontWeight: "bold",
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* ================= WEB DATE MODAL ================= */}
-
-      {Platform.OS === "web" && (showFromPicker || showToPicker) && (
-        <View style={styles.webOverlay}>
-          <View style={styles.webModal}>
-            <Text style={styles.webTitle}>
-              {showFromPicker ? "اختر تاريخ البداية" : "اختر تاريخ النهاية"}
-            </Text>
-
-            <View style={{ position: "relative", marginBottom: 16 }}>
-              <TextInput
-                ref={dateInputRef}
-                value={dateInputText}
-                placeholder="dd/mm/yyyy"
-                keyboardType="numeric"
-                onChangeText={handleDateTextChange}
-                maxLength={10}
-                onSubmitEditing={closeDateModal}
-                onFocus={() => {
-                  const input = dateInputRef.current;
-                  if (input?.select) input.select();
-                }}
-                style={styles.webInput}
-              />
-
-              <input
-                ref={hiddenDateInputRef}
-                type="date"
-                style={{ position: "absolute", opacity: 0 }}
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  const [y, m, d] = e.target.value.split("-").map(Number);
-                  const newDate = new Date(y, m - 1, d);
-
-                  setDateInputText(formatDisplayDate(newDate));
-
-                  if (showFromPicker) {
-                    newDate.setHours(0, 0, 0, 0);
-                    setFromDate(newDate);
-                  } else {
-                    newDate.setHours(23, 59, 59, 999);
-                    setToDate(newDate);
-                  }
-                }}
-              />
-
-              <Pressable
-                style={styles.calendarIcon}
-                onPress={() =>
-                  hiddenDateInputRef.current?.showPicker?.() ||
-                  hiddenDateInputRef.current?.click()
-                }
-              >
-                <Text>📅</Text>
-              </Pressable>
-            </View>
-
-            <Pressable style={styles.modalBtn} onPress={closeDateModal}>
-              <Text style={{ color: "#fff", textAlign: "center" }}>تم</Text>
-            </Pressable>
-          </View>
         </View>
       )}
 
@@ -717,6 +499,31 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     elevation: 10,
+  },
+  dateFilterBox: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    width: "92%",
+    maxWidth: 720,
+    alignSelf: "center",
+
+    backgroundColor: "#ffffff", // 👈 أبيض ثابت
+    borderColor: "#e2e8f0", // 👈 رمادي فاتح
+  },
+
+  dateFilterTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 10,
+    color: "#64748b", // 👈 رمادي نصّي ثابت
+  },
+
+  dateRow: {
+    flexDirection: "row",
+
+    gap: 20,
   },
 
   modalTitle: {

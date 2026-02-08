@@ -5,6 +5,8 @@ export interface AppNotification {
   title: string;
   message: string;
   read: boolean;
+  invoice_id?: number;
+  type?: "invoice_retail" | "invoice_wholesale";
 }
 
 interface NotificationContextType {

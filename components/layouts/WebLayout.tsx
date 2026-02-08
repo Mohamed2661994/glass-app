@@ -1,17 +1,10 @@
-import { ScrollView, StyleSheet } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 
-export default function WebLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function WebLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-    >
+    <View style={[styles.container, Platform.OS === "web" && styles.webFix]}>
       {children}
-    </ScrollView>
+    </View>
   );
 }
 
@@ -19,7 +12,8 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  content: {
-    flexGrow: 1, // 👈 دي أهم سطر
+  webFix: {
+    height: "100vh" as any, // 👈 يمنع سكرول الصفحة
+    overflow: "hidden" as any, // 👈 أي سكرول يبقى داخلي فقط
   },
 });

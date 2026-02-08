@@ -1,10 +1,11 @@
 import { useTheme } from "@/components/context/theme-context";
-import api from "@/services/api";
+import DateField from "@/components/date/DateField";
+import api, { API_URL } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+
 import {
   Alert,
   Animated,
@@ -24,7 +25,6 @@ export default function EditWholesaleInvoice() {
 
   const { id } = useLocalSearchParams();
   const invoiceId = Number(id);
-
   const [products, setProducts] = useState<any[]>([]);
   const [applyDiscount, setApplyDiscount] = useState(false);
   const qtyRefs = useRef<{ [key: number]: TextInput | null }>({});
@@ -37,6 +37,11 @@ export default function EditWholesaleInvoice() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [paidAmount, setPaidAmount] = useState("");
   const [previousBalance, setPreviousBalance] = useState("");
+  const productListRef = useRef<ScrollView | null>(null);
+  const itemLayouts = useRef<{ [key: number]: number }>({});
+  const extraDiscountRef = useRef<TextInput | null>(null);
+  const previousBalanceRef = useRef<TextInput | null>(null);
+  const paidAmountRef = useRef<TextInput | null>(null);
 
   const [lastInvoiceId, setLastInvoiceId] = useState<number | null>(invoiceId);
 
@@ -59,6 +64,7 @@ export default function EditWholesaleInvoice() {
   const { colors, isDark } = useTheme();
   const [extraDiscount, setExtraDiscount] = useState(0);
   const addProductButtonRef = useRef<any>(null);
+  const [pageLoading, setPageLoading] = useState(true);
 
   const [search, setSearch] = useState("");
   const [showMovementDropdown, setShowMovementDropdown] = useState(false);
@@ -77,14 +83,6 @@ export default function EditWholesaleInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-
-  const formatDateForInput = (date: Date) => {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      return "";
-    }
-    return date.toISOString().split("T")[0];
-  };
 
   const filteredProducts = Array.isArray(products)
     ? products.filter((p) =>
@@ -197,7 +195,6 @@ export default function EditWholesaleInvoice() {
 
     setLastInvoiceId(null);
     setSavedInvoiceNumber(null);
-    setInvoiceKey((prev) => prev + 1);
   };
 
   useEffect(() => {
@@ -337,12 +334,24 @@ export default function EditWholesaleInvoice() {
   }, [showProductModal, selectedIndex, filteredProducts]);
 
   useEffect(() => {
+    if (!showProductModal) return;
+
+    const y = itemLayouts.current[selectedIndex];
+    if (y !== undefined && productListRef.current) {
+      productListRef.current.scrollTo({
+        y: Math.max(y - 60, 0),
+        animated: true,
+      });
+    }
+  }, [selectedIndex]);
+
+  useEffect(() => {
     if (!invoiceId) return;
 
     const loadInvoice = async () => {
       try {
         const { data } = await api.get(`/invoices/${invoiceId}/edit`);
-
+        setPageLoading(true);
         setCustomerName(data.customer_name || "");
         setCustomerPhone(data.customer_phone || "");
         setPreviousBalance(String(data.previous_balance || ""));
@@ -364,10 +373,13 @@ export default function EditWholesaleInvoice() {
             discount: Number(it.discount || 0),
           })),
         );
+        setLastInvoiceId(invoiceId);
+        setSavedInvoiceNumber(invoiceId);
       } catch (err: any) {
         Alert.alert("خطأ", err.message);
         router.back();
       }
+      setPageLoading(false);
     };
 
     loadInvoice();
@@ -394,10 +406,6 @@ export default function EditWholesaleInvoice() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    fetchProducts();
-  }, [movementType]);
 
   /* =========================
      حفظ التعديل (PUT فقط)
@@ -431,6 +439,21 @@ export default function EditWholesaleInvoice() {
       setSaving(false);
     }
   };
+  useEffect(() => {
+    if (showConfirmModal) {
+      const t = setTimeout(() => {
+        extraDiscountRef.current?.focus();
+      }, 350);
+      return () => clearTimeout(t);
+    }
+  }, [showConfirmModal]);
+  if (pageLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <Text style={{ color: colors.text }}>جاري تحميل الفاتورة...</Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -489,10 +512,9 @@ export default function EditWholesaleInvoice() {
               <Pressable
                 disabled={!lastInvoiceId}
                 onPress={() => {
-                  router.push({
-                    pathname: "/invoices/[id]/print",
-                    params: { id: String(lastInvoiceId) },
-                  });
+                  if (Platform.OS === "web") {
+                    window.open(`${API_URL}/invoices/${id}/print`, "_blank");
+                  }
                 }}
                 style={{
                   backgroundColor: lastInvoiceId ? "#16a34a" : "#1f2937",
@@ -637,32 +659,11 @@ export default function EditWholesaleInvoice() {
                 )}
               </View>
 
-              <Text style={{ color: "#9ca3af", marginTop: 6 }}>التاريخ</Text>
-
-              <Pressable
-                onPress={() => setShowDatePicker(true)}
-                style={{
-                  backgroundColor: colors.input,
-                  borderRadius: 8,
-                  padding: 10,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 10,
-                  borderWidth: 1,
-                  borderColor: colors.border, // 👈 المفتاح
-                }}
-              >
-                {/* التاريخ */}
-                <Text style={{ color: colors.text, fontSize: 15 }}>
-                  {invoiceDate instanceof Date
-                    ? invoiceDate.toLocaleDateString("ar-EG")
-                    : ""}
-                </Text>
-
-                {/* أيقونة التقويم */}
-                <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
-              </Pressable>
+              <DateField
+                label="تاريخ الفاتورة"
+                value={invoiceDate}
+                onChange={setInvoiceDate}
+              />
 
               {/* اسم العميل */}
               <Text style={{ color: "#9ca3af" }}>اسم العميل</Text>
@@ -1310,172 +1311,6 @@ export default function EditWholesaleInvoice() {
         </ScrollView>
       </View>
 
-      {/* ANDROID */}
-      {showDatePicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={invoiceDate}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (event.type === "set" && selectedDate) {
-              setInvoiceDate(selectedDate);
-            }
-          }}
-        />
-      )}
-
-      {/* IOS */}
-      {Platform.OS === "ios" && (
-        <Modal transparent animationType="fade" visible={showDatePicker}>
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.4)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: isDark ? "#020617" : "#f1f5f9",
-                marginHorizontal: 20,
-                borderRadius: 12,
-                padding: 16,
-                width: "90%",
-                maxWidth: 360,
-              }}
-            >
-              <DateTimePicker
-                value={invoiceDate}
-                mode="date"
-                display="spinner"
-                textColor={isDark ? "#e5e7eb" : "#020617"}
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) {
-                    setInvoiceDate(selectedDate);
-                  }
-                }}
-              />
-
-              <Pressable
-                onPress={() => setShowDatePicker(false)}
-                style={{
-                  marginTop: 12,
-                  backgroundColor: colors.primary,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    textAlign: "center",
-                    fontWeight: "600",
-                    fontSize: 15,
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* WEB DATE PICKER */}
-      {Platform.OS === "web" && showDatePicker && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.65)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.card,
-              padding: 20,
-              borderRadius: 16,
-              width: 320,
-              borderWidth: 1,
-              borderColor: colors.border,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            }}
-          >
-            {/* العنوان */}
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: "600",
-                textAlign: "center",
-                marginBottom: 14,
-              }}
-            >
-              اختر التاريخ
-            </Text>
-
-            {/* input */}
-            <View
-              style={{
-                backgroundColor: colors.input,
-                borderRadius: 10,
-                padding: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <input
-                type="date"
-                value={formatDateForInput(invoiceDate)}
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  const newDate = new Date(e.target.value);
-                  if (!isNaN(newDate.getTime())) {
-                    setInvoiceDate(newDate);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  backgroundColor: "transparent",
-                  color: colors.text,
-                  border: "none",
-                  outline: "none",
-                  fontSize: 15,
-                  textAlign: "center",
-                }}
-              />
-            </View>
-
-            {/* زرار */}
-            <button
-              onClick={() => setShowDatePicker(false)}
-              style={{
-                marginTop: 16,
-                width: "100%",
-                padding: "10px 0",
-                borderRadius: 10,
-                backgroundColor: colors.primary,
-                color: colors.text,
-                border: "none",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              تم
-            </button>
-          </View>
-        </View>
-      )}
-
       {showDeleteModal && (
         <Modal transparent animationType="fade" visible={showDeleteModal}>
           <View
@@ -1605,7 +1440,7 @@ export default function EditWholesaleInvoice() {
                   justifyContent: "center",
                   padding: 16,
                 }}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
               >
                 <View
                   style={{
@@ -1729,6 +1564,7 @@ export default function EditWholesaleInvoice() {
                     </Text>
 
                     <TextInput
+                      ref={extraDiscountRef}
                       value={String(extraDiscount)}
                       onChangeText={(val) => {
                         const num = Number(val);
@@ -1737,6 +1573,11 @@ export default function EditWholesaleInvoice() {
                         }
                       }}
                       keyboardType="numeric"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() =>
+                        previousBalanceRef.current?.focus()
+                      }
                       placeholder="0"
                       placeholderTextColor="#6b7280"
                       style={{
@@ -1768,9 +1609,13 @@ export default function EditWholesaleInvoice() {
                     حساب سابق
                   </Text>
                   <TextInput
+                    ref={previousBalanceRef}
                     value={previousBalance}
                     onChangeText={setPreviousBalance}
                     keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => paidAmountRef.current?.focus()}
                     placeholder="0"
                     placeholderTextColor="#6b7280"
                     style={{
@@ -1790,9 +1635,15 @@ export default function EditWholesaleInvoice() {
                     المدفوع
                   </Text>
                   <TextInput
+                    ref={paidAmountRef}
                     value={paidAmount}
                     onChangeText={setPaidAmount}
                     keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      setShowConfirmModal(false);
+                      saveInvoice();
+                    }}
                     placeholder="0"
                     placeholderTextColor="#6b7280"
                     style={{
@@ -2052,10 +1903,12 @@ export default function EditWholesaleInvoice() {
               <Pressable
                 onPress={() => {
                   setShowSuccessModal(false);
-                  router.push({
-                    pathname: "/invoices/[id]/print",
-                    params: { id: String(savedInvoiceNumber) },
-                  });
+                  if (Platform.OS === "web") {
+                    window.open(
+                      `${API_URL}/invoices/${lastInvoiceId}/print`,
+                      "_blank",
+                    );
+                  }
                 }}
                 style={{
                   backgroundColor: colors.primary,
@@ -2077,7 +1930,10 @@ export default function EditWholesaleInvoice() {
               </Pressable>
 
               <Pressable
-                onPress={() => setShowSuccessModal(false)}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  router.replace("/");
+                }}
                 style={{
                   paddingVertical: 10,
                 }}
@@ -2166,13 +2022,16 @@ export default function EditWholesaleInvoice() {
             </View>
 
             {/* List */}
-            <ScrollView>
+            <ScrollView ref={productListRef}>
               {filteredProducts.map((item, index) => {
                 const isSelected = index === selectedIndex;
 
                 return (
                   <Pressable
                     key={item.id}
+                    onLayout={(e) => {
+                      itemLayouts.current[index] = e.nativeEvent.layout.y;
+                    }}
                     onPress={() => {
                       addItem(item);
                       setShowProductModal(false);

@@ -1,21 +1,19 @@
 import { useTheme } from "@/components/context/theme-context";
+import DateFieldFT from "@/components/date/DateRangeField";
 import BackButton from "@/components/ui/BackButton";
 import api from "@/services/api";
 import Ionicons from "@expo/vector-icons/build/Ionicons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Print from "expo-print";
 import { router, Stack } from "expo-router";
 import * as Sharing from "expo-sharing";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from "react-native";
 
@@ -62,13 +60,6 @@ export default function CashSummaryScreen() {
 
   const [fromDate, setFromDate] = useState<Date>(today);
   const [toDate, setToDate] = useState<Date>(today);
-  const [activeDate, setActiveDate] = useState<"from" | "to" | null>(null);
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
-
-  const [dateInputText, setDateInputText] = useState("");
-  const dateInputRef = useRef<TextInput>(null);
-  const hiddenDateInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ================= FETCH ================= */
 
@@ -80,7 +71,14 @@ export default function CashSummaryScreen() {
           api.get("/cash/out", { params: { branch_id: 1 } }),
         ]);
 
-        setCashIn(inRes.data.data || []);
+        const mappedCashIn = (inRes.data.data || []).map((item: any) => ({
+          ...item,
+          notes: item.notes ?? item.description ?? null,
+        }));
+
+        setCashIn(mappedCashIn); // ✅ بس دي
+
+        // setCashIn(inRes.data.data || []);
         setCashOut(outRes.data.data || []);
       } catch (err: any) {
         console.log("SUMMARY FETCH ERROR", err.response?.data || err.message);
@@ -119,11 +117,6 @@ export default function CashSummaryScreen() {
     return `${day}/${month}/${year}`;
   };
 
-  const parseWebDate = (v: string) => {
-    if (!v) return null;
-    const [y, m, d] = v.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  };
   const toDateOnly = (d: Date) =>
     new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
@@ -152,69 +145,6 @@ export default function CashSummaryScreen() {
     () => cashOut.filter((o) => inRange(o.transaction_date)),
     [cashOut, fromDate, toDate],
   );
-
-  const formatDisplayDate = (date: Date | null) => {
-    if (!date) return "";
-    const d = String(date.getDate()).padStart(2, "0");
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
-  };
-
-  const parseDisplayDate = (text: string) => {
-    const parts = text.split("/");
-    if (parts.length !== 3) return null;
-    const day = Number(parts[0]);
-    const month = Number(parts[1]);
-    const year = Number(parts[2]);
-    if (!day || !month || !year) return null;
-    const date = new Date(year, month - 1, day);
-    if (isNaN(date.getTime())) return null;
-    return date;
-  };
-
-  const handleDateTextChange = (input: string) => {
-    let digits = input.replace(/\D/g, "");
-    if (digits.length > 8) digits = digits.slice(0, 8);
-
-    let formatted = digits;
-    if (digits.length > 4)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-
-    setDateInputText(formatted);
-
-    if (formatted.length === 10) {
-      const parsed = parseDisplayDate(formatted);
-      if (!parsed) return;
-
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-  };
-
-  const closeDateModal = () => {
-    setShowFromPicker(false);
-    setShowToPicker(false);
-  };
-
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-
-    if (showFromPicker || showToPicker) {
-      setTimeout(() => {
-        const input = dateInputRef.current as any;
-        input?.focus?.();
-        input?.setSelectionRange?.(0, input.value.length);
-      }, 120);
-    }
-  }, [showFromPicker, showToPicker]);
 
   /* ================= CALC ================= */
 
@@ -520,29 +450,25 @@ ${
           {/* ===== Date Filters ===== */}
           <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
             <View style={{ flexDirection: "row", gap: 10 }}>
-              <Pressable
-                style={[styles.inputBox, { borderColor: colors.border }]}
-                onPress={() => {
-                  setDateInputText(formatDisplayDate(fromDate));
-                  setShowFromPicker(true);
+              <DateFieldFT
+                label="من تاريخ"
+                value={fromDate}
+                onChange={(date) => {
+                  const d = new Date(date);
+                  d.setHours(0, 0, 0, 0);
+                  setFromDate(d);
                 }}
-              >
-                <Text style={{ color: colors.text, textAlign: "center" }}>
-                  من: {fromDate ? formatLocalDate(fromDate) : "--"}
-                </Text>
-              </Pressable>
+              />
 
-              <Pressable
-                style={[styles.inputBox, { borderColor: colors.border }]}
-                onPress={() => {
-                  setDateInputText(formatDisplayDate(toDate));
-                  setShowToPicker(true);
+              <DateFieldFT
+                label="إلى تاريخ"
+                value={toDate}
+                onChange={(date) => {
+                  const d = new Date(date);
+                  d.setHours(23, 59, 59, 999);
+                  setToDate(d);
                 }}
-              >
-                <Text style={{ color: colors.text, textAlign: "center" }}>
-                  إلى: {toDate ? formatLocalDate(toDate) : "--"}
-                </Text>
-              </Pressable>
+              />
             </View>
           </View>
 
@@ -690,6 +616,7 @@ ${
                       {o.name}
                     </Text>
 
+                    <Text style={styles.amountOut}>{o.amount}</Text>
                     <View
                       style={[
                         styles.typeBadge,
@@ -703,15 +630,12 @@ ${
                         {o.entry_type === "purchase" ? "مشتريات" : "مصروفات"}
                       </Text>
                     </View>
-
-                    <Text style={styles.amountOut}>{o.amount}</Text>
                   </View>
 
                   {o.notes && <Text style={styles.notes}>📝 {o.notes}</Text>}
                 </View>
               ))}
             </View>
-
             {/* الوارد */}
             <View style={[styles.listBox, { backgroundColor: colors.card }]}>
               <Text style={styles.listTitle}>الوارد</Text>
@@ -735,33 +659,32 @@ ${
                       <Text style={[styles.name, { color: colors.text }]}>
                         {i.customer_name}
                       </Text>
-
-                      <View
-                        style={[
-                          styles.typeBadge,
-                          {
-                            backgroundColor:
-                              i.source_type === "invoice"
-                                ? "#7c3aed"
-                                : i.source_type === "customer_payment"
-                                  ? "#14532d"
-                                  : "#1e3a8a",
-                          },
-                        ]}
-                      >
-                        <Text style={styles.typeText}>
-                          {i.source_type === "invoice"
-                            ? "فاتورة"
-                            : i.source_type === "customer_payment"
-                              ? "سداد عميل"
-                              : "وارد يدوي"}
-                        </Text>
-                      </View>
                     </View>
 
                     <Text style={styles.amountIn}>
                       {i.source_type === "invoice" ? i.paid_amount : i.amount}
                     </Text>
+                    <View
+                      style={[
+                        styles.typeBadge,
+                        {
+                          backgroundColor:
+                            i.source_type === "invoice"
+                              ? "#7c3aed"
+                              : i.source_type === "customer_payment"
+                                ? "#14532d"
+                                : "#1e3a8a",
+                        },
+                      ]}
+                    >
+                      <Text style={styles.typeText}>
+                        {i.source_type === "invoice"
+                          ? "فاتورة"
+                          : i.source_type === "customer_payment"
+                            ? "سداد عميل"
+                            : "وارد يدوي"}
+                      </Text>
+                    </View>
                   </View>
 
                   {i.notes && <Text style={styles.notes}>📝 {i.notes}</Text>}
@@ -771,244 +694,6 @@ ${
           </View>
         </View>
       </ScrollView>
-
-      {/* ===== Date Picker ===== */}
-
-      {/* ANDROID FROM */}
-      {showFromPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={fromDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowFromPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(0, 0, 0, 0);
-              setFromDate(d);
-            }
-          }}
-        />
-      )}
-
-      {/* ANDROID TO */}
-      {showToPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={toDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowToPicker(false);
-            if (event.type === "set" && selectedDate) {
-              const d = new Date(selectedDate);
-              d.setHours(23, 59, 59, 999);
-              setToDate(d);
-            }
-          }}
-        />
-      )}
-
-      {Platform.OS === "ios" && (showFromPicker || showToPicker) && (
-        <Modal transparent animationType="fade">
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.4)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: colors.card,
-                marginHorizontal: 20,
-                borderRadius: 12,
-                padding: 16,
-                width: "90%",
-                maxWidth: 360,
-              }}
-            >
-              <DateTimePicker
-                value={(showFromPicker ? fromDate : toDate) || new Date()}
-                mode="date"
-                display="spinner"
-                textColor={colors.text}
-                onChange={(event, selectedDate) => {
-                  if (!selectedDate) return;
-
-                  if (showFromPicker) {
-                    const d = new Date(selectedDate);
-                    d.setHours(0, 0, 0, 0);
-                    setFromDate(d);
-                  } else {
-                    const d = new Date(selectedDate);
-                    d.setHours(23, 59, 59, 999);
-                    setToDate(d);
-                  }
-                }}
-              />
-
-              <Pressable
-                onPress={() => {
-                  setShowFromPicker(false);
-                  setShowToPicker(false);
-                }}
-                style={{
-                  marginTop: 12,
-                  backgroundColor: colors.primary,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#fff",
-                    textAlign: "center",
-                    fontWeight: "600",
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {Platform.OS === "web" && (showFromPicker || showToPicker) && (
-        <View
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.65)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.card,
-              padding: 20,
-              borderRadius: 16,
-              width: 320,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-          >
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: "700",
-                textAlign: "center",
-                marginBottom: 12,
-              }}
-            >
-              {showFromPicker ? "اختر تاريخ البداية" : "اختر تاريخ النهاية"}
-            </Text>
-
-            <View style={{ position: "relative", marginBottom: 16 }}>
-              <TextInput
-                ref={dateInputRef}
-                value={dateInputText}
-                placeholder="dd/mm/yyyy"
-                placeholderTextColor={colors.muted}
-                keyboardType="numeric"
-                onChangeText={handleDateTextChange}
-                maxLength={10}
-                returnKeyType="done"
-                onSubmitEditing={closeDateModal} // 👈 أهم سطر
-                blurOnSubmit={false}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  paddingRight: 40, // مساحة للأيقونة
-                  borderRadius: 10,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  backgroundColor: colors.input,
-                  color: colors.text,
-                  fontSize: 16,
-                  textAlign: "center",
-                }}
-              />
-              <input
-                ref={hiddenDateInputRef}
-                type="date"
-                style={{
-                  position: "absolute",
-                  opacity: 0,
-                  pointerEvents: "none",
-                  width: 0,
-                  height: 0,
-                }}
-                onChange={(e) => {
-                  if (!e.target.value) return;
-
-                  const [y, m, d] = e.target.value.split("-").map(Number);
-                  const newDate = new Date(y, m - 1, d);
-
-                  const formatted = formatDisplayDate(newDate);
-                  setDateInputText(formatted);
-
-                  if (showFromPicker) {
-                    newDate.setHours(0, 0, 0, 0);
-                    setFromDate(newDate);
-                  } else {
-                    newDate.setHours(23, 59, 59, 999);
-                    setToDate(newDate);
-                  }
-                }}
-              />
-
-              {/* أيقونة الكالندر */}
-              <Pressable
-                onPress={() =>
-                  hiddenDateInputRef.current?.showPicker?.() ||
-                  hiddenDateInputRef.current?.click()
-                }
-                style={{
-                  position: "absolute",
-                  right: 10,
-                  top: 0,
-                  bottom: 0,
-                  justifyContent: "center",
-                }}
-              >
-                <Ionicons
-                  name="calendar-outline"
-                  size={20}
-                  color={colors.muted}
-                />
-              </Pressable>
-            </View>
-
-            <Pressable
-              onPress={closeDateModal}
-              style={{
-                width: "100%",
-                paddingVertical: 12,
-                borderRadius: 10,
-                backgroundColor: colors.primary,
-              }}
-            >
-              <Text
-                style={{
-                  color: "#fff",
-                  textAlign: "center",
-                  fontWeight: "600",
-                }}
-              >
-                تم
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
     </>
   );
 }

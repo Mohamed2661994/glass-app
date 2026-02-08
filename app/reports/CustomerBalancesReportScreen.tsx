@@ -1,16 +1,15 @@
+import DateFieldFT from "@/components/date/DateRangeField";
 import BackButton from "@/components/ui/BackButton";
 import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import Checkbox from "expo-checkbox";
 import { router, Stack } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 
 import {
   ActivityIndicator,
   FlatList,
-  Modal,
-  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -32,8 +31,14 @@ export default function CustomerBalancesReportScreen() {
   const [data, setData] = useState<CustomerBalanceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [tempDate, setTempDate] = useState<Date>(new Date());
   const { user } = useUser();
+  const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
+  const toggleCustomer = (name: string) => {
+    setSelectedCustomers((prev) =>
+      prev.includes(name) ? prev.filter((c) => c !== name) : [...prev, name],
+    );
+  };
+
   const isBranchUser = !!user?.branch_id;
   const isShowroomUser = user?.branch_id === 1; // معرض
   const isWarehouseUser = user?.branch_id === 2; // مخزن رئيسي
@@ -49,12 +54,9 @@ export default function CustomerBalancesReportScreen() {
     }
   }, [user]);
 
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
   const [customerSearch, setCustomerSearch] = useState("");
-  const [dateInputText, setDateInputText] = useState("");
   const [warehouseId, setWarehouseId] = useState<string | null>(null);
 
   const dateInputRef = useRef<any>(null);
@@ -95,24 +97,6 @@ export default function CustomerBalancesReportScreen() {
     return () => clearTimeout(t);
   }, [customerSearch, fromDate, toDate, warehouseId]);
 
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-
-    if (showFromPicker || showToPicker) {
-      setTimeout(() => {
-        const input: any = dateInputRef.current;
-        if (input) {
-          input.focus();
-
-          // يحدد كل النص داخل الحقل
-          if (input.setSelectionRange) {
-            input.setSelectionRange(0, input.value.length);
-          }
-        }
-      }, 100); // مهلة بسيطة عشان المودال يترندر
-    }
-  }, [showFromPicker, showToPicker]);
-
   /* ================== DATE HELPERS ================== */
   const formatDateForAPI = (date: Date) => {
     const y = date.getFullYear();
@@ -121,92 +105,48 @@ export default function CustomerBalancesReportScreen() {
     return `${y}-${m}-${d}`;
   };
 
-  const formatDisplayDate = (date: Date | null) => {
-    if (!date) return "";
-    const d = String(date.getDate()).padStart(2, "0");
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const y = date.getFullYear();
-    return `${d}/${m}/${y}`;
-  };
-
-  const parseDisplayDate = (text: string) => {
-    const [d, m, y] = text.split("/").map(Number);
-    if (!d || !m || !y) return null;
-    const dt = new Date(y, m - 1, d);
-    return isNaN(dt.getTime()) ? null : dt;
-  };
-
-  const handleDateTextChange = (input: string) => {
-    let digits = input.replace(/\D/g, "").slice(0, 8);
-    let formatted = digits;
-    if (digits.length > 4)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-
-    setDateInputText(formatted);
-
-    if (formatted.length === 10) {
-      const parsed = parseDisplayDate(formatted);
-      if (!parsed) return;
-
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-  };
-
-  const closeDateModal = () => {
-    const parsed = parseDisplayDate(dateInputText);
-
-    if (parsed) {
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else if (showToPicker) {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-
-    setShowFromPicker(false);
-    setShowToPicker(false);
-  };
-
   /* ================== RENDER ROW ================== */
   const renderItem = ({ item }: { item: CustomerBalanceItem }) => {
     const date = item.last_invoice_date
       ? new Date(item.last_invoice_date).toLocaleDateString("ar-EG")
       : "—";
-
+    const isSelected = selectedCustomers.includes(item.customer_name);
     return (
-      <Pressable
-        style={styles.rowItem}
-        onPress={() =>
-          router.push({
-            pathname: "/reports/customer-debt-details",
-            params: { customer_name: item.customer_name },
-          })
-        }
-      >
-        <Text style={[styles.cell, styles.customerCell]}>
-          {item.customer_name}
-        </Text>
-        <Text style={styles.cell}>{date}</Text>
-        <Text style={styles.cell}>
-          {Number(item.total_sales).toLocaleString()}
-        </Text>
-        <Text style={styles.cell}>
-          {Number(item.total_paid).toLocaleString()}
-        </Text>
-        <Text style={[styles.cell, styles.balanceCell]}>
-          {Number(item.balance_due).toLocaleString()}
-        </Text>
-      </Pressable>
+      <View style={styles.rowItem}>
+        {/* ✅ Checkbox لوحده */}
+        <View style={{ flex: 0.4, alignItems: "center" }}>
+          <Checkbox
+            value={isSelected}
+            onValueChange={() => toggleCustomer(item.customer_name)}
+            color={isSelected ? "#1e293b" : undefined}
+          />
+        </View>
+
+        {/* ✅ باقي الصف هو اللي يفتح التفاصيل */}
+        <Pressable
+          style={{ flex: 4, flexDirection: "row-reverse" }}
+          onPress={() =>
+            router.push({
+              pathname: "/reports/customer-debt-details",
+              params: { customer_name: item.customer_name },
+            })
+          }
+        >
+          <Text style={[styles.cell, styles.customerCell]}>
+            {item.customer_name}
+          </Text>
+          <Text style={styles.cell}>{date}</Text>
+          <Text style={styles.cell}>
+            {Number(item.total_sales).toLocaleString()}
+          </Text>
+          <Text style={styles.cell}>
+            {Number(item.total_paid).toLocaleString()}
+          </Text>
+          <Text style={[styles.cell, styles.balanceCell]}>
+            {Number(item.balance_due).toLocaleString()}
+          </Text>
+        </Pressable>
+      </View>
     );
   };
 
@@ -283,34 +223,28 @@ export default function CustomerBalancesReportScreen() {
       </View>
 
       {/* 📅 فلترة التاريخ */}
-      <View style={styles.searchRow}>
-        <TouchableOpacity
-          style={styles.dateInput}
-          onPress={() => {
-            const base = fromDate || new Date();
-            setTempDate(base);
-            setDateInputText(formatDisplayDate(base));
-            setShowFromPicker(true);
-          }}
-        >
-          <Text style={styles.dateText}>
-            📅 {fromDate ? formatDateForAPI(fromDate) : "من تاريخ"}
-          </Text>
-        </TouchableOpacity>
+      <View style={styles.dateFilterBox}>
+        <View style={styles.dateRow}>
+          <DateFieldFT
+            label="من تاريخ"
+            value={fromDate}
+            onChange={(date) => {
+              const d = new Date(date);
+              d.setHours(0, 0, 0, 0);
+              setFromDate(d);
+            }}
+          />
 
-        <TouchableOpacity
-          style={styles.dateInput}
-          onPress={() => {
-            const base = toDate || new Date();
-            setTempDate(base);
-            setDateInputText(formatDisplayDate(base));
-            setShowToPicker(true);
-          }}
-        >
-          <Text style={styles.dateText}>
-            📅 {toDate ? formatDateForAPI(toDate) : "إلى تاريخ"}
-          </Text>
-        </TouchableOpacity>
+          <DateFieldFT
+            label="إلى تاريخ"
+            value={toDate}
+            onChange={(date) => {
+              const d = new Date(date);
+              d.setHours(23, 59, 59, 999);
+              setToDate(d);
+            }}
+          />
+        </View>
       </View>
 
       {/* 🧹 مسح الفلاتر */}
@@ -335,12 +269,34 @@ export default function CustomerBalancesReportScreen() {
           <Text style={styles.clearBtnText}>مسح الفلترة</Text>
         </TouchableOpacity>
       </View>
+      {selectedCustomers.length > 0 && (
+        <View style={{ alignItems: "center", marginBottom: 10 }}>
+          <TouchableOpacity
+            style={styles.printBtn}
+            onPress={() => {
+              const selectedData = data.filter((c) =>
+                selectedCustomers.includes(c.customer_name),
+              );
+
+              router.push({
+                pathname: "/reports/print-selected-customers",
+                params: { customers: JSON.stringify(selectedData) },
+              });
+            }}
+          >
+            <Text style={styles.printBtnText}>
+              طباعة العملاء المختارين ({selectedCustomers.length})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
 
       {data.length > 0 && (
         <View style={styles.tableContainer}>
           <View style={styles.tableHeader}>
+            <Text style={[styles.headerCell, { flex: 0.4 }]}>✔</Text>
             <Text style={styles.headerCell}>العميل</Text>
             <Text style={styles.headerCell}>تاريخ آخر فاتورة</Text>
             <Text style={styles.headerCell}>إجمالي الفواتير</Text>
@@ -357,113 +313,6 @@ export default function CustomerBalancesReportScreen() {
             }
             contentContainerStyle={{ paddingBottom: 40 }}
           />
-        </View>
-      )}
-
-      {/* ANDROID PICKERS */}
-      {showFromPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={fromDate || new Date()}
-          mode="date"
-          onChange={(e, d) => {
-            setShowFromPicker(false);
-            if (d) {
-              d.setHours(0, 0, 0, 0);
-              setFromDate(d);
-            }
-          }}
-        />
-      )}
-
-      {showToPicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={toDate || new Date()}
-          mode="date"
-          onChange={(e, d) => {
-            setShowToPicker(false);
-            if (d) {
-              d.setHours(23, 59, 59, 999);
-              setToDate(d);
-            }
-          }}
-        />
-      )}
-
-      {Platform.OS === "ios" && (showFromPicker || showToPicker) && (
-        <Modal transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <View style={styles.iosPickerWrapper}>
-                <DateTimePicker
-                  value={tempDate}
-                  mode="date"
-                  display="spinner"
-                  themeVariant="light"
-                  textColor="#000000"
-                  onChange={(event, selectedDate) => {
-                    if (selectedDate) {
-                      setTempDate(new Date(selectedDate));
-                    }
-                  }}
-                  style={{ backgroundColor: "#ffffff" }}
-                />
-              </View>
-
-              <Pressable
-                onPress={() => {
-                  const d = new Date(tempDate);
-
-                  if (showFromPicker) {
-                    d.setHours(0, 0, 0, 0);
-                    setFromDate(d);
-                  } else {
-                    d.setHours(23, 59, 59, 999);
-                    setToDate(d);
-                  }
-
-                  setShowFromPicker(false);
-                  setShowToPicker(false);
-                }}
-                style={styles.modalBtn}
-              >
-                <Text
-                  style={{
-                    color: "#ffffff",
-                    textAlign: "center",
-                    fontWeight: "bold",
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* WEB DATE MODAL */}
-      {Platform.OS === "web" && (showFromPicker || showToPicker) && (
-        <View style={styles.webOverlay}>
-          <View style={styles.webModal}>
-            <Text style={styles.webTitle}>
-              {showFromPicker ? "اختر تاريخ البداية" : "اختر تاريخ النهاية"}
-            </Text>
-
-            <TextInput
-              ref={dateInputRef}
-              value={dateInputText}
-              placeholder="dd/mm/yyyy"
-              keyboardType="numeric"
-              onChangeText={handleDateTextChange}
-              onSubmitEditing={closeDateModal} // ✅ Enter = تم
-              blurOnSubmit={false}
-              style={styles.webInput}
-            />
-
-            <Pressable style={styles.modalBtn} onPress={closeDateModal}>
-              <Text style={{ color: "#fff", textAlign: "center" }}>تم</Text>
-            </Pressable>
-          </View>
         </View>
       )}
     </View>
@@ -489,6 +338,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 10,
     marginBottom: 10,
+  },
+  dateFilterBox: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    width: "92%",
+    maxWidth: 720,
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+  },
+
+  dateRow: {
+    flexDirection: "row",
+    gap: 12,
   },
 
   input: {
@@ -523,6 +388,16 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse", // ✅ يعكس الأعمدة
     backgroundColor: "#1e293b",
     paddingVertical: 8,
+  },
+  printBtn: {
+    backgroundColor: "#16a34a",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  printBtnText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 
   rowItem: {

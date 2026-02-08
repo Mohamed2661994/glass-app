@@ -4,6 +4,7 @@ import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import { Platform } from "react-native";
 
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -29,6 +31,7 @@ export default function InventoryReportScreen() {
   const { user } = useAuth();
   const isShowroomUser = user?.branch_id === 1; // المعرض
   const isWarehouseUser = user?.branch_id === 2; // المخزن
+  const [searchText, setSearchText] = useState("");
 
   const [data, setData] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,11 +62,29 @@ export default function InventoryReportScreen() {
   };
 
   const filteredData = useMemo(() => {
-    if (selectedWarehouse === "الكل") return data;
-    return data.filter(
-      (item) => (item.warehouse_name || "").trim() === selectedWarehouse.trim(),
-    );
-  }, [data, selectedWarehouse]);
+    let result = data;
+
+    // فلترة بالمخزن
+    if (selectedWarehouse !== "الكل") {
+      result = result.filter(
+        (item) =>
+          (item.warehouse_name || "").trim() === selectedWarehouse.trim(),
+      );
+    }
+
+    // 🔍 البحث بالاسم أو المصنع
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+
+      result = result.filter(
+        (item) =>
+          item.product_name.toLowerCase().includes(q) ||
+          (item.manufacturer_name || "").toLowerCase().includes(q),
+      );
+    }
+
+    return result;
+  }, [data, selectedWarehouse, searchText]);
 
   const renderItem = ({ item }: { item: InventoryItem }) => {
     const totalIn = Number(item.total_in || 0);
@@ -179,6 +200,22 @@ export default function InventoryReportScreen() {
             </TouchableOpacity>
           ))}
         </View>
+        <View style={styles.searchWrapper}>
+          <Ionicons name="search-outline" size={18} color="#64748b" />
+          <Text
+            style={{
+              position: "absolute",
+              left: -9999,
+            }}
+          />
+          <TextInput
+            placeholder="ابحث عن الصنف أو المصنع..."
+            value={searchText}
+            onChangeText={setSearchText}
+            style={styles.searchInput}
+            placeholderTextColor="#94a3b8"
+          />
+        </View>
 
         {problemCount > 0 && (
           <Text style={styles.warning}>
@@ -211,6 +248,32 @@ export default function InventoryReportScreen() {
           />
         </View>
       </View>
+      {Platform.OS === "web" && (
+        <style>
+          {`
+      /* عرض السكرول */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      /* الخلفية */
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      /* الشريط نفسه */
+      ::-webkit-scrollbar-thumb {
+        background-color: #94a3b8;
+        border-radius: 10px;
+      }
+
+      /* عند الـ hover */
+      ::-webkit-scrollbar-thumb:hover {
+        background-color: #64748b;
+      }
+    `}
+        </style>
+      )}
     </>
   );
 }
@@ -268,6 +331,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e293b",
     paddingVertical: 8,
   },
+  searchWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+
+    alignSelf: "center", // 👈 يخليه في النص
+    width: "90%", // 👈 عرض أقل من الشاشة
+    maxWidth: 500, // 👈 ممتاز للتابلت / الويب
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 10 : 6,
+
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: "#111",
+  },
 
   headerCell: {
     flex: 1,
@@ -293,6 +384,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tableWrapper: {
+    flex: 1,
     alignSelf: "center", // يخليه في النص
     width: "95%", // يقلل عرضه عن الشاشة
     borderRadius: 10,

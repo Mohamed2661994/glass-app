@@ -2,6 +2,7 @@ import { useTheme } from "@/components/context/theme-context";
 import BackButton from "@/components/ui/BackButton";
 import { useUser } from "@/hooks/useUser";
 import api from "@/services/api";
+import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import { Stack, useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
@@ -59,7 +60,7 @@ export default function InventoryValueReport() {
   const [manufacturerFilter, setManufacturerFilter] = useState<string | null>(
     null,
   );
-
+  const hasFilters = warehouseFilter !== null || manufacturerFilter !== null;
   const fetchManufacturers = async () => {
     try {
       const res = await api.get("/reports/manufacturers");
@@ -141,6 +142,7 @@ export default function InventoryValueReport() {
       <View style={{ flex: 1, backgroundColor: colors.background }}>
         <View
           style={{
+            flex: 1,
             width: "100%",
             maxWidth: 900,
             alignSelf: "center",
@@ -189,10 +191,44 @@ export default function InventoryValueReport() {
               </TouchableOpacity>
             ))}
           </View>
+          {hasFilters && (
+            <TouchableOpacity
+              onPress={() => {
+                setWarehouseFilter(null);
+                setManufacturerFilter(null);
+              }}
+              style={{
+                alignSelf: "center",
+                marginBottom: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.card,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 6,
+              }}
+            >
+              <Ionicons
+                name="close-circle-outline"
+                size={16}
+                color={colors.text}
+              />
+              <Text style={{ color: colors.text, fontWeight: "600" }}>
+                مسح الفلاتر
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <View style={{ marginBottom: 12 }}>
             <Text
-              style={{ color: colors.text, marginBottom: 6, fontWeight: "600" }}
+              style={{
+                color: colors.text,
+                marginBottom: 6,
+                fontWeight: "600",
+              }}
             >
               فلترة حسب المصنع
             </Text>
@@ -374,6 +410,7 @@ export default function InventoryValueReport() {
                 `${item.product_id}-${item.warehouse_id}-${index}`
               }
               renderItem={renderItem}
+              showsVerticalScrollIndicator={false} // 👈 نفس شكل السكرول اللي حفظناه
               ListFooterComponent={
                 <View
                   style={[
@@ -399,7 +436,6 @@ export default function InventoryValueReport() {
                   </Text>
                 </View>
               }
-              contentContainerStyle={{ paddingBottom: 40 }}
             />
           )}
         </View>

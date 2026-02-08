@@ -1,3 +1,4 @@
+import { useTheme } from "@/components/context/theme-context";
 import * as SecureStore from "expo-secure-store";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
@@ -6,6 +7,7 @@ interface User {
   id: number;
   username: string;
   branch_id: number;
+  theme?: "light" | "dark" | "system";
 }
 
 interface AuthContextType {
@@ -37,10 +39,11 @@ const storage = {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { setMode } = useTheme();
+
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // 👈 ده المهم
-
   // 🔄 تحميل الجلسة عند تشغيل التطبيق
   useEffect(() => {
     const loadSession = async () => {
@@ -62,6 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     loadSession();
   }, []);
 
+  useEffect(() => {
+    if (user?.theme) {
+      setMode(user.theme);
+    }
+  }, [user]);
   const login = async (token: string, user: User) => {
     setUser(user);
     setToken(token);

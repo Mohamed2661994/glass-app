@@ -6,10 +6,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import { createContext, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { createContext, useEffect, useRef, useState } from "react";
-
+import CashCountForm from "@/components/forms/CashCountForm";
 import {
   Animated,
   Dimensions,
@@ -68,7 +68,7 @@ const CARDS: CardItem[] = [
     icon: "add",
     color: "#facc15",
     iconColor: "#000",
-    route: "/products",
+    route: "/products/ProductsScreen",
   },
   {
     title: "عرض الفواتير",
@@ -132,6 +132,8 @@ export interface AppNotification {
   title: string;
   message: string;
   read: boolean;
+  invoice_id?: number; // 👈 جديد
+  type?: "invoice_retail" | "invoice_wholesale"; // 👈 جديد
 }
 
 /* ================== SKELETON ================== */
@@ -150,6 +152,7 @@ function SkeletonCard() {
 
 export default function HomeScreen() {
   //const { mode, toggleTheme } = useTheme();
+  const [unlocked, setUnlocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [cashModalOpen, setCashModalOpen] = useState(false);
   const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -162,6 +165,7 @@ export default function HomeScreen() {
     notifications: AppNotification[];
     setNotifications: React.Dispatch<React.SetStateAction<AppNotification[]>>;
   } | null>(null);
+  const [cashCountModal, setCashCountModal] = useState(false);
 
   const { isDark, colors } = useTheme();
   const [logoutModalVisible, setLogoutModalVisible] = useState(false);
@@ -214,7 +218,14 @@ export default function HomeScreen() {
       style={{ flex: 1, paddingBottom: -insets.bottom }}
     >
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={[
+          { paddingBottom: 40 },
+          IS_WEB && {
+            flexGrow: 1,
+            justifyContent: "center", // ⬅️ توسيط رأسي
+            alignItems: "center", // ⬅️ توسيط أفقي
+          },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* ===== TITLE ===== */}
@@ -282,6 +293,21 @@ export default function HomeScreen() {
                       )}
                     </Pressable>
                   )}
+                  <Pressable
+                    onPress={() => {
+                      if (Platform.OS === "web") {
+                        setCashCountModal(true);
+                      } else {
+                        router.push("/cash-count");
+                      }
+                    }}
+                  >
+                    <Ionicons
+                      name="calculator-outline"
+                      size={22}
+                      color={colors.text}
+                    />
+                  </Pressable>
 
                   <Pressable
                     onPress={() => setLogoutModalVisible(true)}
@@ -685,6 +711,19 @@ export default function HomeScreen() {
           </View>
         )}
       </ScrollView>
+      {cashCountModal && (
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: "#ffffff" }]}>
+            <CashCountForm />
+            <Pressable
+              onPress={() => setCashCountModal(false)}
+              style={styles.modalCloseBtn}
+            >
+              <Text style={styles.modalCloseText}>إغلاق</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       {/* ===== Logout Modal خارج الاسكرول ===== */}
       {logoutModalVisible && (
@@ -753,11 +792,21 @@ export default function HomeScreen() {
                       { backgroundColor: item.read ? "#0f172a" : "#1e293b" },
                     ]}
                     onPress={() => {
-                      setNotifications((prev: AppNotification[]) =>
-                        prev.map((n: AppNotification) =>
+                      setNotifications((prev) =>
+                        prev.map((n) =>
                           n.id === item.id ? { ...n, read: true } : n,
                         ),
                       );
+
+                      setNotifOpen(false);
+
+                      if (!item.invoice_id) return;
+
+                      if (item.type === "invoice_wholesale") {
+                        router.push(`/invoices/wholesale/${item.invoice_id}`);
+                      } else if (item.type === "invoice_retail") {
+                        router.push(`/invoices/retail/${item.invoice_id}`);
+                      }
                     }}
                   >
                     <Text style={styles.notifItemTitle}>{item.title}</Text>
@@ -899,7 +948,7 @@ const styles = StyleSheet.create({
   },
 
   gridWeb: {
-    width: "50%",
+    width: "100%",
     maxWidth: 900, // 👈 هنا الثبات
     flexDirection: "row",
     flexWrap: "wrap",

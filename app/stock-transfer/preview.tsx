@@ -59,53 +59,18 @@ export default function StockTransferPreview() {
             (i: any) => i.product_id === row.product_id,
           );
 
-          const cartons = localItem?.quantity ?? 0;
-
-          // نص العبوة
-          const packageText = localItem?.wholesale_package?.trim() || "";
-
-          // الرقم الموجود في النص (12 من "12 قطعة" / 4 من "4 طقم")
-          const unitCount = Number(packageText.match(/\d+/)?.[0] || 0);
-
-          // هل دستة؟
-          const isDozen = /دست/i.test(packageText);
-
-          let toQuantity = cartons;
-
-          // ✅ لو مش دستة → خد رقم العبوة وانزله زي ما هو
-          if (!isDozen && unitCount > 0) {
-            toQuantity = cartons * unitCount;
-          }
-
-          // ✅ لو دستة → شغّل الحسبة
-          if (isDozen) {
-            const piecesPerDozen = 12;
-            const piecesPerShiala = 3;
-
-            toQuantity =
-              (cartons * unitCount * piecesPerDozen) / piecesPerShiala;
-          }
-
-          const unitName = packageText.replace(/\d+/g, "").trim();
-
-          let fromText = `من: ${cartons} كرتونة`;
-          let toText = ` ${Math.round(toQuantity)} ${unitName}`;
-
-          if (unitCount > 0) {
-            fromText = `${cartons}  ${unitName}  ${unitCount}`;
-          }
-
           return {
             ...row,
-            quantity: cartons,
-            from_quantity: cartons,
-            to_quantity: Math.round(toQuantity),
+
+            // الكمية اللي المستخدم كتبها
+            quantity: localItem?.quantity ?? 0,
+
+            // ✅ خُد القيم من الباك
+            from_quantity: row.from_quantity ?? 0,
+            to_quantity: row.to_quantity ?? 0,
+
             final_price: localItem?.final_price ?? 0,
-            manufacturer: localItem?.manufacturer ?? "",
-            status: "ok",
-            reason: undefined,
-            from: fromText,
-            to: toText,
+            manufacturer: row.manufacturer ?? "",
           };
         });
 

@@ -1,4 +1,5 @@
 import { useAuth } from "@/components/context/AuthContext";
+import { useTheme } from "@/components/context/theme-context";
 import api from "@/services/api";
 import { socket } from "@/services/socket";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +24,7 @@ const LoginScreen: React.FC = () => {
   const passwordRef = useRef<TextInput>(null);
   const [passFocused, setPassFocused] = useState(false);
   const [userFocused, setUserFocused] = useState(false);
+  const { setMode } = useTheme();
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +43,9 @@ const LoginScreen: React.FC = () => {
       const { token, user } = res.data;
 
       await login(token, user);
+
+      // ✅ تطبيق الثيم المخزن للمستخدم
+      setMode(user.theme || "system");
 
       // 🔌 تشغيل السوكيت
       socket.connect();

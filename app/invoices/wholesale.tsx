@@ -1,7 +1,7 @@
 import { useTheme } from "@/components/context/theme-context";
-import api from "@/services/api";
+import DateField from "@/components/date/DateField";
+import api, { API_URL } from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Audio } from "expo-av";
 import { Stack, router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +44,9 @@ export default function WholesaleInvoice() {
   const [customerPhones, setCustomerPhones] = useState<any[]>([]);
   const [newPhone, setNewPhone] = useState("");
   const [customerId, setCustomerId] = useState<number | null>(null);
+  const extraDiscountRef = useRef<TextInput | null>(null);
+  const previousBalanceRef = useRef<TextInput | null>(null);
+  const paidAmountRef = useRef<TextInput | null>(null);
 
   const [savedInvoiceNumber, setSavedInvoiceNumber] = useState<number | null>(
     null,
@@ -79,16 +82,8 @@ export default function WholesaleInvoice() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [invoiceDate, setInvoiceDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<any[]>([]);
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-
-  const formatDateForInput = (date: Date) => {
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      return "";
-    }
-    return date.toISOString().split("T")[0];
-  };
 
   const filteredProducts = Array.isArray(products)
     ? products.filter((p) =>
@@ -168,6 +163,7 @@ export default function WholesaleInvoice() {
       if (data) {
         setCustomerName(data.name);
         setCustomerId(data.id); // ✅ مهم جدًا
+        fetchCustomerBalance(data.id);
       }
     } catch (err) {
       console.log("Phone search error", err);
@@ -497,6 +493,30 @@ export default function WholesaleInvoice() {
     });
   }, [selectedIndex, showProductModal]);
 
+  const fetchCustomerBalance = async (id: number) => {
+    try {
+      const res = await api.get(`/customers/${id}/balance`, {
+        params: { invoice_type: invoiceType }, // wholesale هنا
+      });
+
+      setPreviousBalance(String(res.data.balance || 0));
+    } catch (err) {
+      console.log("Balance fetch error", err);
+      setPreviousBalance("0");
+    }
+  };
+
+  useEffect(() => {
+    if (customerId) {
+      fetchCustomerBalance(customerId);
+    }
+  }, [customerId]);
+  useEffect(() => {
+    if (showConfirmModal) {
+      setTimeout(() => extraDiscountRef.current?.focus(), 300);
+    }
+  }, [showConfirmModal]);
+
   return (
     <>
       <Stack.Screen
@@ -582,10 +602,12 @@ export default function WholesaleInvoice() {
               <Pressable
                 disabled={!lastInvoiceId}
                 onPress={() => {
-                  router.push({
-                    pathname: "/invoices/[id]/print",
-                    params: { id: String(lastInvoiceId) },
-                  });
+                  if (Platform.OS === "web") {
+                    window.open(
+                      `${API_URL}/invoices/${lastInvoiceId}/print`,
+                      "_blank",
+                    );
+                  }
                 }}
                 style={{
                   backgroundColor: lastInvoiceId ? "#16a34a" : "#1f2937",
@@ -718,32 +740,11 @@ export default function WholesaleInvoice() {
                 )}
               </View>
 
-              <Text style={{ color: "#9ca3af", marginTop: 6 }}>التاريخ</Text>
-
-              <Pressable
-                onPress={() => setShowDatePicker(true)}
-                style={{
-                  backgroundColor: colors.input,
-                  borderRadius: 8,
-                  padding: 10,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 10,
-                  borderWidth: 1,
-                  borderColor: colors.border, // 👈 المفتاح
-                }}
-              >
-                {/* التاريخ */}
-                <Text style={{ color: colors.text, fontSize: 15 }}>
-                  {invoiceDate instanceof Date
-                    ? invoiceDate.toLocaleDateString("ar-EG")
-                    : ""}
-                </Text>
-
-                {/* أيقونة التقويم */}
-                <Ionicons name="calendar-outline" size={20} color="#9ca3af" />
-              </Pressable>
+              <DateField
+                label="تاريخ الفاتورة"
+                value={invoiceDate}
+                onChange={setInvoiceDate}
+              />
 
               {/* اسم العميل */}
               <Text style={{ color: "#9ca3af" }}>اسم العميل</Text>
@@ -788,6 +789,7 @@ export default function WholesaleInvoice() {
                         setCustomerName(cust.name);
                         setCustomerPhone(cust.phone || "");
                         setCustomerId(cust.id); // ✅ مهم
+                        fetchCustomerBalance(cust.id);
                         setShowCustomerDropdown(false);
                       }}
                       style={{
@@ -1489,172 +1491,6 @@ export default function WholesaleInvoice() {
         </ScrollView>
       </View>
 
-      {/* ANDROID */}
-      {showDatePicker && Platform.OS === "android" && (
-        <DateTimePicker
-          value={invoiceDate}
-          mode="date"
-          display="default"
-          onChange={(event, selectedDate) => {
-            setShowDatePicker(false);
-            if (event.type === "set" && selectedDate) {
-              setInvoiceDate(selectedDate);
-            }
-          }}
-        />
-      )}
-
-      {/* IOS */}
-      {Platform.OS === "ios" && (
-        <Modal transparent animationType="fade" visible={showDatePicker}>
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.4)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: isDark ? "#020617" : "#f1f5f9",
-                marginHorizontal: 20,
-                borderRadius: 12,
-                padding: 16,
-                width: "90%",
-                maxWidth: 360,
-              }}
-            >
-              <DateTimePicker
-                value={invoiceDate}
-                mode="date"
-                display="spinner"
-                textColor={isDark ? "#e5e7eb" : "#020617"}
-                onChange={(event, selectedDate) => {
-                  if (selectedDate) {
-                    setInvoiceDate(selectedDate);
-                  }
-                }}
-              />
-
-              <Pressable
-                onPress={() => setShowDatePicker(false)}
-                style={{
-                  marginTop: 12,
-                  backgroundColor: colors.primary,
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: colors.text,
-                    textAlign: "center",
-                    fontWeight: "600",
-                    fontSize: 15,
-                  }}
-                >
-                  تم
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* WEB DATE PICKER */}
-      {Platform.OS === "web" && showDatePicker && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.65)",
-            justifyContent: "center",
-            alignItems: "center",
-            zIndex: 1000,
-          }}
-        >
-          <View
-            style={{
-              backgroundColor: colors.card,
-              padding: 20,
-              borderRadius: 16,
-              width: 320,
-              borderWidth: 1,
-              borderColor: colors.border,
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            }}
-          >
-            {/* العنوان */}
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: "600",
-                textAlign: "center",
-                marginBottom: 14,
-              }}
-            >
-              اختر التاريخ
-            </Text>
-
-            {/* input */}
-            <View
-              style={{
-                backgroundColor: colors.input,
-                borderRadius: 10,
-                padding: 8,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-            >
-              <input
-                type="date"
-                value={formatDateForInput(invoiceDate)}
-                onChange={(e) => {
-                  if (!e.target.value) return;
-                  const newDate = new Date(e.target.value);
-                  if (!isNaN(newDate.getTime())) {
-                    setInvoiceDate(newDate);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  backgroundColor: "transparent",
-                  color: colors.text,
-                  border: "none",
-                  outline: "none",
-                  fontSize: 15,
-                  textAlign: "center",
-                }}
-              />
-            </View>
-
-            {/* زرار */}
-            <button
-              onClick={() => setShowDatePicker(false)}
-              style={{
-                marginTop: 16,
-                width: "100%",
-                padding: "10px 0",
-                borderRadius: 10,
-                backgroundColor: colors.primary,
-                color: colors.text,
-                border: "none",
-                fontSize: 15,
-                fontWeight: 600,
-                cursor: "pointer",
-              }}
-            >
-              تم
-            </button>
-          </View>
-        </View>
-      )}
-
       {showDeleteModal && (
         <Modal transparent animationType="fade" visible={showDeleteModal}>
           <View
@@ -1784,7 +1620,7 @@ export default function WholesaleInvoice() {
                   justifyContent: "center",
                   padding: 16,
                 }}
-                keyboardShouldPersistTaps="handled"
+                keyboardShouldPersistTaps="always"
               >
                 <View
                   style={{
@@ -1908,6 +1744,7 @@ export default function WholesaleInvoice() {
                     </Text>
 
                     <TextInput
+                      ref={extraDiscountRef}
                       value={String(extraDiscount)}
                       onChangeText={(val) => {
                         const num = Number(val);
@@ -1916,6 +1753,11 @@ export default function WholesaleInvoice() {
                         }
                       }}
                       keyboardType="numeric"
+                      returnKeyType="next"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() =>
+                        previousBalanceRef.current?.focus()
+                      }
                       placeholder="0"
                       placeholderTextColor="#6b7280"
                       style={{
@@ -1947,9 +1789,13 @@ export default function WholesaleInvoice() {
                     حساب سابق
                   </Text>
                   <TextInput
+                    ref={previousBalanceRef}
                     value={previousBalance}
                     onChangeText={setPreviousBalance}
                     keyboardType="numeric"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
+                    onSubmitEditing={() => paidAmountRef.current?.focus()}
                     placeholder="0"
                     placeholderTextColor="#6b7280"
                     style={{
@@ -1969,9 +1815,15 @@ export default function WholesaleInvoice() {
                     المدفوع
                   </Text>
                   <TextInput
+                    ref={paidAmountRef}
                     value={paidAmount}
                     onChangeText={setPaidAmount}
                     keyboardType="numeric"
+                    returnKeyType="done"
+                    onSubmitEditing={() => {
+                      setShowConfirmModal(false);
+                      saveInvoice();
+                    }}
                     placeholder="0"
                     placeholderTextColor="#6b7280"
                     style={{
@@ -2221,10 +2073,12 @@ export default function WholesaleInvoice() {
               <Pressable
                 onPress={() => {
                   setShowSuccessModal(false);
-                  router.push({
-                    pathname: "/invoices/[id]/print",
-                    params: { id: String(savedInvoiceNumber) },
-                  });
+                  if (Platform.OS === "web") {
+                    window.open(
+                      `${API_URL}/invoices/${lastInvoiceId}/print`,
+                      "_blank",
+                    );
+                  }
                 }}
                 style={{
                   backgroundColor: colors.primary,
@@ -2246,7 +2100,10 @@ export default function WholesaleInvoice() {
               </Pressable>
 
               <Pressable
-                onPress={() => setShowSuccessModal(false)}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  router.replace("/invoices/wholesale"); // حط مسار الصفحة نفسه
+                }}
                 style={{
                   paddingVertical: 10,
                 }}
@@ -2540,7 +2397,7 @@ export default function WholesaleInvoice() {
                     onPress={() => {
                       setCustomerName(phoneSearchResult.name);
                       setCustomerPhone(p.phone);
-                      setCustomerId(phoneSearchResult.id);
+                      fetchCustomerBalance(phoneSearchResult.id);
                       setPhoneModalVisible(false);
                     }}
                     style={{

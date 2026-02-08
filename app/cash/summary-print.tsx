@@ -69,9 +69,15 @@ export default function CashSummaryPrint() {
   /* ===== Print setup ===== */
   useEffect(() => {
     if (Platform.OS !== "web") return;
+
     if (typeof document === "undefined") return;
+    // 🧠 خزن القيم القديمة
+    const prevHtmlDir = document.documentElement.getAttribute("dir");
+    const prevBodyDir = document.body.getAttribute("dir");
+
     // إجبار Light Mode بالكامل
-    document.documentElement.setAttribute("data-force-light", "true");
+    document.documentElement.setAttribute("dir", "rtl"); // ⭐ السطر الأهم
+    document.body.setAttribute("dir", "rtl"); // ⭐ احتياطي
     const style = document.createElement("style");
     style.innerHTML = `
     @page {
@@ -89,6 +95,10 @@ export default function CashSummaryPrint() {
         overflow: visible !important;
       }
 
+      /* 👇 يمنع اختفاء المحتوى */
+  div, span {
+    overflow: visible !important;
+  }
       .avoidBreak {
         page-break-inside: avoid;
         break-inside: avoid;
@@ -97,9 +107,20 @@ export default function CashSummaryPrint() {
   `;
 
     document.head.appendChild(style);
-
     return () => {
-      document.documentElement.removeAttribute("data-force-light");
+      // 🔁 رجّع الاتجاه زي ما كان
+      if (prevHtmlDir) {
+        document.documentElement.setAttribute("dir", prevHtmlDir);
+      } else {
+        document.documentElement.removeAttribute("dir");
+      }
+
+      if (prevBodyDir) {
+        document.body.setAttribute("dir", prevBodyDir);
+      } else {
+        document.body.removeAttribute("dir");
+      }
+
       document.head.removeChild(style);
     };
   }, []);
@@ -233,6 +254,13 @@ export default function CashSummaryPrint() {
     </View>
   );
   const hasPurchases = purchases.length > 0;
+  if (loading) {
+    return (
+      <View style={{ padding: 40 }}>
+        <Text>جاري تحميل بيانات التقرير...</Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -241,7 +269,16 @@ export default function CashSummaryPrint() {
       <View style={styles.page}>
         <View style={styles.sheet}>
           {/* HEADER */}
-          <Text style={styles.title}>اليومية</Text>
+          <View style={styles.headerRow}>
+            <Text style={styles.title}>اليومية</Text>
+
+            {toDate && (
+              <Text style={styles.reportDate}>
+                {toDate.toLocaleDateString("ar-EG")}
+              </Text>
+            )}
+          </View>
+
           {/* ================= SUMMARY ================= */}
           <View style={styles.summaryBox}>
             {previousDate && showOpeningBalance && (
@@ -265,6 +302,15 @@ export default function CashSummaryPrint() {
           {/* CASH IN */}
           {/* ROW TABLES */}
           <View style={styles.rowTables}>
+            {/* الوارد */}
+            <Table
+              title="الوارد"
+              rows={filteredIn.map((i) => [
+                i.notes,
+                i.source_type === "invoice" ? i.paid_amount : i.amount,
+                i.customer_name,
+              ])}
+            />
             {/* المصروفات */}
             <Table
               title="المنصرف (مصروفات)"
@@ -277,15 +323,6 @@ export default function CashSummaryPrint() {
                 rows={purchases.map((o) => [o.notes, o.amount, o.name])}
               />
             )}
-            {/* الوارد */}
-            <Table
-              title="الوارد"
-              rows={filteredIn.map((i) => [
-                i.notes,
-                i.source_type === "invoice" ? i.paid_amount : i.amount,
-                i.customer_name,
-              ])}
-            />
           </View>
         </View>
       </View>
@@ -301,11 +338,10 @@ type RowProps = {
 
 const Row = ({ label, value }: RowProps) => (
   <View style={styles.summaryRow}>
+    <Text style={styles.summaryLabel}>{label} :</Text>
     <Text style={styles.summaryValue}>
       {Math.round(value).toLocaleString("ar-EG")}
     </Text>
-
-    <Text style={styles.summaryLabel}>{label}:</Text>
   </View>
 );
 
@@ -327,30 +363,47 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     textAlign: "center",
   },
-
   summaryRow: {
-    flexDirection: "row",
+    flexDirection: "row", // 👈 رجعناه طبيعي
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 8,
   },
 
   summaryLabel: {
     fontSize: 13,
     textAlign: "right",
-    color: "#000",
+    flex: 1,
   },
+
+  summaryColon: {
+    width: 10,
+    textAlign: "center",
+  },
+
+  summaryValue: {
+    flex: 1, // 👈 الأرقام تاخد باقي المساحة
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "left",
+  },
+
   summaryBox: {
     borderWidth: 1,
     borderColor: "#000",
     padding: 12,
     marginVertical: 20,
   },
+  headerRow: {
+    flexDirection: "column", // 👈 بدل row-reverse
+    alignItems: "center", // 👈 يخليهم في النص
+    gap: 4, // مسافة بسيطة بينهم
+    marginBottom: 10,
+  },
 
-  summaryValue: {
+  reportDate: {
     fontSize: 13,
-    fontWeight: "700",
-    textAlign: "left",
+    fontWeight: "600",
   },
 
   rowTables: {
@@ -368,6 +421,7 @@ const styles = StyleSheet.create({
   table: {
     borderWidth: 1,
     borderColor: "#000",
+    direction: "rtl", // زيادة تأكيد
   },
   sheet: {
     borderWidth: 1,
@@ -380,14 +434,14 @@ const styles = StyleSheet.create({
   },
 
   tableHeader: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     backgroundColor: "#eee",
     borderBottomWidth: 1,
     borderColor: "#000",
   },
 
   tableRow: {
-    flexDirection: "row",
+    flexDirection: "row-reverse", // يخلي الأعمدة تبدأ من اليمين
     borderBottomWidth: 1,
     borderColor: "#ccc",
   },

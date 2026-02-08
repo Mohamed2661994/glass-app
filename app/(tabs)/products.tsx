@@ -192,18 +192,14 @@ export default function ProductsScreen() {
     setManufacturer(product.manufacturer || "");
     setPurchasePrice(String(product.purchase_price));
     setRetailPurchasePrice(String(product.retail_purchase_price || ""));
-
     setWholesalePrice(String(product.wholesale_price));
     setRetailPrice(String(product.retail_price));
     setDiscount(String(product.discount_amount || ""));
     setActiveEditId(product.id);
 
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        y: 0,
-        animated: true,
-      });
-    }, 100);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+    });
   };
 
   const resetForm = () => {
@@ -246,35 +242,9 @@ export default function ProductsScreen() {
   };
 
   /* ================= Content ================= */
+
   const Content = (
-    <ScrollView
-      ref={scrollRef}
-      style={{ flex: 1, backgroundColor: colors.background }}
-      contentContainerStyle={styles.container}
-      scrollEventThrottle={16}
-      onScroll={(e) => {
-        if (Platform.OS !== "web") return;
-
-        const y = e.nativeEvent.contentOffset.y;
-
-        // 👇 لو المستخدم سحب لفوق زيادة
-        if (y < -60 && !webRefreshing) {
-          setWebRefreshing(true);
-          loadProducts().finally(() => {
-            setWebRefreshing(false);
-          });
-        }
-      }}
-      refreshControl={
-        Platform.OS !== "web" ? (
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#2f80ed"
-          />
-        ) : undefined
-      }
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <ThemedText
         style={[styles.pageTitle, { color: colors.text }]}
         type="title"
@@ -296,7 +266,11 @@ export default function ProductsScreen() {
             styles.card,
             editingId !== null && styles.editingCard,
 
-            { backgroundColor: colors.card },
+            {
+              backgroundColor: colors.card,
+              flexShrink: 0,
+              alignSelf: "flex-start",
+            },
           ]}
         >
           <ThemedText
@@ -532,31 +506,50 @@ export default function ProductsScreen() {
         <ThemedView
           style={[
             styles.card,
-            editingId !== null && styles.editingCard,
-
-            { backgroundColor: colors.card },
+            {
+              backgroundColor: colors.card,
+              flex: 1,
+              minHeight: 0,
+              alignSelf: "stretch",
+              ...(Platform.OS === "web" && {
+                maxWidth: 820, // 👈 عرض مناسب لليست
+              }),
+            }, // 👈 مهم عشان ياخد الطول
           ]}
         >
           <ThemedText style={{ color: colors.text, marginBottom: 8 }}>
             قائمة الأصناف
           </ThemedText>
 
-          <View style={styles.listContent}>
-            <TextInput
-              placeholder="بحث عن صنف..."
-              placeholderTextColor={colors.muted}
-              value={search}
-              onChangeText={setSearch}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.input,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-            />
-
+          <TextInput
+            placeholder="بحث عن صنف..."
+            placeholderTextColor={colors.muted}
+            value={search}
+            onChangeText={setSearch}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.input,
+                borderColor: colors.border,
+                color: colors.text,
+                marginBottom: 10,
+              },
+            ]}
+          />
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              Platform.OS !== "web" ? (
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#2f80ed"
+                />
+              ) : undefined
+            }
+          >
             {loading ? (
               <ActivityIndicator style={{ marginTop: 20 }} />
             ) : filtered.length === 0 ? (
@@ -842,17 +835,114 @@ export default function ProductsScreen() {
                 ))}
               </View>
             )}
-          </View>
+          </ScrollView>
         </ThemedView>
       </View>
-    </ScrollView>
+    </View>
   );
 
   return Platform.OS === "web" ? (
     <WebLayout>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1 }} pointerEvents="box-none">
         {Content}
+        {printModalOpen && (
+          <Modal
+            visible={printModalOpen}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPrintModalOpen(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View
+                style={[
+                  styles.modalCard,
+                  {
+                    backgroundColor: colors.card,
+                  },
+                ]}
+              >
+                <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
+                  طباعة باركود
+                </ThemedText>
 
+                <TextInput
+                  placeholder="عدد النسخ"
+                  placeholderTextColor={colors.muted}
+                  keyboardType="numeric"
+                  value={printCopies}
+                  onChangeText={setPrintCopies}
+                  style={[
+                    styles.input,
+                    {
+                      backgroundColor: colors.input,
+                      borderColor: colors.border,
+                      color: colors.text,
+                      marginBottom: 18,
+                    },
+                  ]}
+                />
+
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  {/* إلغاء */}
+                  <TouchableOpacity
+                    style={[
+                      styles.modalCancel,
+                      {
+                        backgroundColor: colors.border,
+                      },
+                    ]}
+                    onPress={resetPrintModal}
+                  >
+                    <ThemedText style={{ color: colors.text }}>
+                      إلغاء
+                    </ThemedText>
+                  </TouchableOpacity>
+
+                  {/* طباعة */}
+                  <TouchableOpacity
+                    style={[
+                      styles.modalConfirm,
+                      {
+                        backgroundColor: colors.primary,
+                      },
+                    ]}
+                    onPress={() => {
+                      if (!printProduct) return;
+
+                      router.push({
+                        pathname: "/print/barcode",
+                        params: {
+                          barcode: printProduct.barcode,
+                          copies: printCopies,
+                          retailPrice: String(printProduct.retail_price),
+                          discount: String(printProduct.discount_amount),
+                          itemName: printProduct.name,
+                        },
+                      });
+
+                      resetPrintModal(); // 👈 تصفير المودال
+                    }}
+                  >
+                    <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
+                      طباعة
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+        )}
+      </View>
+    </WebLayout>
+  ) : (
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex: 1 }}
+      contentContainerStyle={{ paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      {Content}
+      {printModalOpen && (
         <Modal
           visible={printModalOpen}
           transparent
@@ -935,95 +1025,7 @@ export default function ProductsScreen() {
             </View>
           </View>
         </Modal>
-      </View>
-    </WebLayout>
-  ) : (
-    <View style={{ flex: 1 }}>
-      {Content}
-
-      <Modal
-        visible={printModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPrintModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: colors.card,
-              },
-            ]}
-          >
-            <ThemedText style={[styles.modalTitle, { color: colors.text }]}>
-              طباعة باركود
-            </ThemedText>
-
-            <TextInput
-              placeholder="عدد النسخ"
-              placeholderTextColor={colors.muted}
-              keyboardType="numeric"
-              value={printCopies}
-              onChangeText={setPrintCopies}
-              style={[
-                styles.input,
-                {
-                  backgroundColor: colors.input,
-                  borderColor: colors.border,
-                  color: colors.text,
-                  marginBottom: 18,
-                },
-              ]}
-            />
-
-            <View style={{ flexDirection: "row", gap: 12 }}>
-              {/* إلغاء */}
-              <TouchableOpacity
-                style={[
-                  styles.modalCancel,
-                  {
-                    backgroundColor: colors.border,
-                  },
-                ]}
-                onPress={resetPrintModal}
-              >
-                <ThemedText style={{ color: colors.text }}>إلغاء</ThemedText>
-              </TouchableOpacity>
-
-              {/* طباعة */}
-              <TouchableOpacity
-                style={[
-                  styles.modalConfirm,
-                  {
-                    backgroundColor: colors.primary,
-                  },
-                ]}
-                onPress={() => {
-                  if (!printProduct) return;
-
-                  router.push({
-                    pathname: "/print/barcode",
-                    params: {
-                      barcode: printProduct.barcode,
-                      copies: printCopies,
-                      retailPrice: String(printProduct.retail_price),
-                      discount: String(printProduct.discount_amount),
-                    },
-                  });
-
-                  resetPrintModal(); // 👈 تصفير المودال
-                }}
-              >
-                <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
-                  طباعة
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      )}
       <Modal visible={scannerOpen} animationType="slide">
         <View style={{ flex: 1, backgroundColor: "#000" }}>
           <CameraView
@@ -1070,28 +1072,27 @@ export default function ProductsScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }
 
 /* ================= Styles ================= */
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     padding: 20,
-    paddingBottom: 40,
     gap: 16,
-    flexGrow: 1, // 👈 ده المفتاح
-    alignItems: Platform.OS === "web" ? "center" : "stretch", // 👈 يوسّط المحتوى
+    alignItems: Platform.OS === "web" ? "center" : "stretch",
   },
 
   card: {
     borderRadius: 12,
     padding: 16,
-    alignSelf: "flex-start", // 👈 المهم جدًا
+    //alignSelf: "flex-start", // 👈 المهم جدًا
     gap: 10,
     ...(Platform.OS === "web"
       ? {
-          width: 700, // 👈 للفورم
+          width: 400, // 👈 للفورم
         }
       : {
           width: "100%", // 👈 للموبيل
@@ -1339,19 +1340,23 @@ const styles = StyleSheet.create({
   },
 
   pageTitle: {
-    marginTop: Platform.OS === "web" ? 0 : 55, // 👈 ينزل العنوان في الموبايل
+    marginTop: Platform.OS === "web" ? 30 : 55, // 👈 مسافة من فوق في الويب
     marginBottom: 12,
     textAlign: "center",
   },
 
   webRow: {
+    flex: 1,
+    minHeight: 0,
     flexDirection: Platform.OS === "web" ? "row" : "column",
     gap: 24,
 
     ...(Platform.OS === "web" && {
-      maxWidth: 1100, // 👈 يمنع التمدد
+      maxWidth: 1400, // 👈 عرض أكبر شوية
       width: "100%",
+      alignSelf: "center", // 👈 يخلي الصف كله في نص الشاشة
       justifyContent: "center",
+      alignItems: "stretch", // 👈 يخلي الكروت تاخد نفس الارتفاع
     }),
   },
 });

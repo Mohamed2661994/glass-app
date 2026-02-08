@@ -1,11 +1,9 @@
 import { useTheme } from "@/components/context/theme-context";
+import DateField from "@/components/date/DateField";
 import BackButton from "@/components/ui/BackButton";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import api from "@/services/api";
-import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { Alert, Modal, Platform, Pressable, Text, View } from "react-native";
@@ -20,16 +18,12 @@ export default function CashInForm() {
   const [entryType, setEntryType] = useState<"manual" | "customer_payment">(
     "manual",
   );
-
+  const [invoiceDate, setInvoiceDate] = useState<Date | null>(new Date());
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
   const finalDescription =
-    description ||
-    (entryType === "customer_payment"
-      ? `سند دفع من العميل ${sourceName}`
-      : "وارد نقدي");
+    description || (entryType === "customer_payment" ? "سند دفع" : "وارد نقدي");
 
   const saveCashIn = async () => {
     // 1️⃣ التحقق من الجهة
@@ -51,7 +45,7 @@ export default function CashInForm() {
       setLoading(true);
 
       const { data } = await api.post("/cash/in", {
-        branch_id: 1,
+        //branch_id: 1,
         transaction_date: date.toISOString().split("T")[0],
         customer_name: sourceName,
         description: finalDescription,
@@ -186,168 +180,7 @@ export default function CashInForm() {
           />
 
           {/* ===== التاريخ ===== */}
-          <Text style={{ color: colors.muted, marginBottom: 6 }}>التاريخ</Text>
-
-          <Card
-            onPress={() => setShowDatePicker(true)}
-            style={{
-              marginBottom: 16,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: 12,
-            }}
-          >
-            {/* التاريخ */}
-            <Text
-              style={{
-                color: colors.text,
-                fontWeight: "600",
-              }}
-            >
-              {date.toLocaleDateString("ar-EG")}
-            </Text>
-
-            {/* أيقونة التقويم */}
-            <Ionicons name="calendar-outline" size={20} color={colors.muted} />
-          </Card>
-
-          {showDatePicker && Platform.OS === "android" && (
-            <DateTimePicker
-              value={date}
-              mode="date"
-              display="default"
-              onChange={(event, selectedDate) => {
-                setShowDatePicker(false);
-                if (event.type === "set" && selectedDate) {
-                  setDate(selectedDate);
-                }
-              }}
-            />
-          )}
-
-          {showDatePicker && Platform.OS === "ios" && (
-            <Modal transparent animationType="fade">
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.5)",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    borderRadius: 16,
-                    padding: 16,
-                    width: "90%",
-                  }}
-                >
-                  <DateTimePicker
-                    value={date}
-                    mode="date"
-                    display="spinner"
-                    onChange={(event, selectedDate) => {
-                      if (selectedDate) setDate(selectedDate);
-                    }}
-                  />
-
-                  <Pressable
-                    onPress={() => setShowDatePicker(false)}
-                    style={{
-                      marginTop: 12,
-                      backgroundColor: "#2563eb",
-                      padding: 12,
-                      borderRadius: 10,
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#fff",
-                        textAlign: "center",
-                        fontWeight: "600",
-                      }}
-                    >
-                      تم
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            </Modal>
-          )}
-
-          {showDatePicker && Platform.OS === "web" && (
-            <Modal transparent animationType="fade">
-              <View
-                style={{
-                  flex: 1,
-                  backgroundColor: "rgba(0,0,0,0.6)",
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: colors.card,
-                    padding: 25,
-                    borderRadius: 16,
-                    width: 320,
-                  }}
-                >
-                  <Text
-                    style={{
-                      color: colors.text,
-                      fontWeight: "700",
-                      textAlign: "center",
-                      marginBottom: 12,
-                    }}
-                  >
-                    اختر التاريخ
-                  </Text>
-
-                  <input
-                    type="date"
-                    value={date.toISOString().split("T")[0]}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const d = new Date(e.target.value);
-                      if (!isNaN(d.getTime())) setDate(d);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        setShowDatePicker(false);
-                      }
-                    }}
-                    style={{
-                      width: "90%",
-                      padding: 10,
-                      fontSize: 15,
-                      borderRadius: 8,
-                      border: "1px solid #ccc",
-                    }}
-                  />
-
-                  <button
-                    onClick={() => setShowDatePicker(false)}
-                    style={{
-                      marginTop: 14,
-                      width: "100%",
-                      padding: 10,
-                      borderRadius: 10,
-                      backgroundColor: "#2563eb",
-                      color: "#fff",
-                      fontWeight: 600,
-                      border: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    تم
-                  </button>
-                </View>
-              </View>
-            </Modal>
-          )}
+          <DateField label="تاريخ العملية" value={date} onChange={setDate} />
 
           {/* ===== البيان ===== */}
           <Text style={{ color: colors.muted, marginBottom: 6 }}>البيان</Text>

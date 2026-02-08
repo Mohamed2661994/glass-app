@@ -5,10 +5,12 @@ import api from "@/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
+
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -43,6 +45,12 @@ function AppToast({
   );
 }
 /* ================================================= */
+type ProductItem = {
+  label: string;
+  value: number;
+  manufacturer?: string;
+  wholesale_package?: string;
+};
 
 export default function ReplaceScreen() {
   const [products, setProducts] = useState<any[]>([]);
@@ -88,9 +96,11 @@ export default function ReplaceScreen() {
     loadProducts();
   }, []);
 
-  const productItems = products.map((p) => ({
+  const productItems: ProductItem[] = products.map((p) => ({
     label: p.name,
     value: p.id,
+    manufacturer: p.manufacturer,
+    wholesale_package: p.wholesale_package,
   }));
 
   const getProductName = (id: number | null) =>
@@ -218,13 +228,69 @@ export default function ReplaceScreen() {
                     searchable
                     searchPlaceholder="ابحث عن الصنف..."
                     listMode="SCROLLVIEW"
-                    maxHeight={220}
+                    scrollViewProps={{
+                      showsVerticalScrollIndicator: false,
+                    }}
+                    maxHeight={400}
                     placeholder="اختر الصنف"
                     style={styles.dropdown}
-                    dropDownContainerStyle={styles.dropdownContainer}
+                    dropDownContainerStyle={[
+                      styles.dropdownContainer,
+                      {
+                        paddingVertical: 6,
+                        paddingHorizontal: 8,
+                      },
+                    ]}
                     textStyle={{ color: colors.text }}
                     searchTextInputStyle={styles.searchInput}
                     searchContainerStyle={styles.searchContainer}
+                    /* 👇 عرض مخصص (اسم + مصنع + عبوة) */
+                    renderListItem={({ item }) => {
+                      const product = item as ProductItem;
+
+                      return (
+                        <Pressable
+                          onPress={() => {
+                            setOutProductId(product.value); // ✅ اختيار الصنف
+                            setOpenOut(false); // ✅ قفل القائمة
+                            fetchLiveQuantity(product.value, setOutLiveQty); // ✅ الرصيد
+                          }}
+                          style={({ pressed }) => ({
+                            paddingVertical: 8,
+                            opacity: pressed ? 0.6 : 1,
+                          })}
+                        >
+                          {/* اسم الصنف */}
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: "600",
+                              color: colors.text,
+                            }}
+                          >
+                            {product.label}
+                          </Text>
+
+                          {/* المصنع + العبوة */}
+                          {(product.manufacturer ||
+                            product.wholesale_package) && (
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                marginTop: 2,
+                                color: colors.muted,
+                              }}
+                            >
+                              {product.manufacturer}
+                              {product.manufacturer && product.wholesale_package
+                                ? " | "
+                                : ""}
+                              {product.wholesale_package}
+                            </Text>
+                          )}
+                        </Pressable>
+                      );
+                    }}
                   />
 
                   {outLiveQty !== null && (
@@ -252,21 +318,71 @@ export default function ReplaceScreen() {
                     value={inProductId}
                     items={productItems}
                     setOpen={setOpenIn}
-                    setValue={(callback) => {
-                      const val = callback(inProductId);
-                      setInProductId(val);
-                      if (val) fetchLiveQuantity(val, setInLiveQty);
-                    }}
+                    setValue={() => {}} // 👈 الحل السحري
+                    multiple={false}
                     searchable
                     searchPlaceholder="ابحث عن الصنف..."
                     listMode="SCROLLVIEW"
-                    maxHeight={220}
+                    scrollViewProps={{
+                      showsVerticalScrollIndicator: false,
+                    }}
+                    maxHeight={400}
                     placeholder="اختر الصنف"
                     style={styles.dropdown}
-                    dropDownContainerStyle={styles.dropdownContainer}
+                    dropDownContainerStyle={[
+                      styles.dropdownContainer,
+                      {
+                        paddingVertical: 6,
+                        paddingHorizontal: 8,
+                      },
+                    ]}
                     textStyle={{ color: colors.text }}
                     searchTextInputStyle={styles.searchInput}
                     searchContainerStyle={styles.searchContainer}
+                    renderListItem={({ item }) => {
+                      const product = item as ProductItem;
+
+                      return (
+                        <Pressable
+                          onPress={() => {
+                            setInProductId(product.value);
+                            setOpenIn(false);
+                            fetchLiveQuantity(product.value, setInLiveQty);
+                          }}
+                          style={({ pressed }) => ({
+                            paddingVertical: 8,
+                            opacity: pressed ? 0.6 : 1,
+                          })}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 15,
+                              fontWeight: "600",
+                              color: colors.text,
+                            }}
+                          >
+                            {product.label}
+                          </Text>
+
+                          {(product.manufacturer ||
+                            product.wholesale_package) && (
+                            <Text
+                              style={{
+                                fontSize: 12,
+                                marginTop: 2,
+                                color: colors.muted,
+                              }}
+                            >
+                              {product.manufacturer}
+                              {product.manufacturer && product.wholesale_package
+                                ? " | "
+                                : ""}
+                              {product.wholesale_package}
+                            </Text>
+                          )}
+                        </Pressable>
+                      );
+                    }}
                   />
 
                   {inLiveQty !== null && (

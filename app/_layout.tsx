@@ -1,5 +1,9 @@
 import { AuthProvider, useAuth } from "@/components/context/AuthContext";
 import {
+  CashCountProvider,
+  useCashCount,
+} from "@/components/context/CashCountContext";
+import {
   NotificationProvider,
   useNotifications,
 } from "@/components/context/NotificationContext";
@@ -17,14 +21,22 @@ import {
 import { useFonts } from "expo-font";
 import * as NavigationBar from "expo-navigation-bar";
 import { useEffect } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  View,
+} from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "./global.css";
 
+import CashCountGlobalModal from "@/components/CashCountGlobalModal";
+import { Audio } from "expo-av";
 import { Stack, router, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
-
 export const unstable_settings = {
   anchor: "(tabs)",
 };
@@ -35,7 +47,9 @@ export default function RootLayout() {
       <ThemeProvider>
         <AuthProvider>
           <NotificationProvider>
-            <RootLayoutContent />
+            <CashCountProvider>
+              <RootLayoutContent />
+            </CashCountProvider>
           </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
@@ -51,6 +65,34 @@ function RootLayoutContent() {
     ...Ionicons.font,
   });
   const segments = useSegments();
+
+  function GlobalKeyboardShortcuts() {
+    const { setOpen } = useCashCount();
+
+    useEffect(() => {
+      if (Platform.OS !== "web") return;
+
+      const handleKey = (e: KeyboardEvent) => {
+        // تجاهل لو المستخدم بيكتب داخل input
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+        if (e.key === "F7") {
+          e.preventDefault();
+          setOpen(true);
+        }
+
+        if (e.key === "Escape") {
+          setOpen(false);
+        }
+      };
+
+      window.addEventListener("keydown", handleKey);
+      return () => window.removeEventListener("keydown", handleKey);
+    }, []);
+
+    return null;
+  }
 
   // 🎯 حماية التنقل
   useEffect(() => {
@@ -76,10 +118,30 @@ function RootLayoutContent() {
       user_id: user.id,
       //branch_id: user.branch_id,
     });
-
+    async function playNotificationSound() {
+      try {
+        const { sound } = await Audio.Sound.createAsync(
+          require("@/assets/sounds/notification.wav"),
+        );
+        await sound.playAsync();
+      } catch (e) {
+        console.log("Sound error", e);
+      }
+    }
     const handleNotification = (data: any) => {
-      triggerNotification(data.title, data.message);
-      addNotification(data);
+      const formatted = {
+        title: data.title,
+        message: data.message,
+        invoice_id: data.invoice_id || data.reference_id, // ✅ الإصلاح
+        type: data.type,
+      };
+
+      triggerNotification(formatted.title, formatted.message);
+      console.log("NOTIFICATION RECEIVED:", data);
+      console.log("NOTIF DATA:", data);
+      addNotification(formatted);
+
+      playNotificationSound();
     };
 
     socket.on("new_notification", handleNotification);
@@ -121,13 +183,17 @@ function RootLayoutContent() {
       </View>
     );
   }
-  return (
-    <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
-      <Stack>
-        {/* شاشة تسجيل الدخول */}
-        <Stack.Screen name="login" options={{ headerShown: false }} />
+  const AppContent = (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+    >
+      <GlobalKeyboardShortcuts />
+      <CashCountGlobalModal />
 
-        {/* التطبيق بعد تسجيل الدخول */}
+      <Stack>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="replace" options={{ headerShown: false }} />
         <Stack.Screen
@@ -135,8 +201,20 @@ function RootLayoutContent() {
           options={{ presentation: "modal", title: "Modal" }}
         />
       </Stack>
+
       <GlobalNotification />
       <StatusBar translucent backgroundColor="transparent" style="light" />
+    </KeyboardAvoidingView>
+  );
+  return (
+    <NavigationThemeProvider value={isDark ? DarkTheme : DefaultTheme}>
+      {Platform.OS === "web" ? (
+        <View style={{ flex: 1 }}>{AppContent}</View>
+      ) : (
+        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss}>
+          {AppContent}
+        </Pressable>
+      )}
     </NavigationThemeProvider>
   );
 }

@@ -1,11 +1,11 @@
 import { useTheme } from "@/components/context/theme-context";
+import DateField from "@/components/date/DateField";
 import Button from "@/components/ui/Button";
 import api from "@/services/api";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,11 +15,7 @@ import {
 } from "react-native";
 
 import BackButton from "@/components/ui/BackButton";
-import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { Platform } from "react-native";
 
 export default function CashOutScreen() {
   const [name, setName] = useState("");
@@ -27,14 +23,12 @@ export default function CashOutScreen() {
   const [notes, setNotes] = useState("");
 
   const [entryType, setEntryType] = useState<"expense" | "purchase">("expense");
-  const [date, setDate] = useState(""); // YYYY-MM-DD
-  const [tempDate, setTempDate] = useState<Date | null>(null);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [permissionNumber, setPermissionNumber] = useState<string | null>(null);
   const { isDark, colors } = useTheme();
+  const [date, setDate] = useState(new Date());
 
   const { id } = useLocalSearchParams<{ id?: string }>();
   const rawId = Array.isArray(id) ? id[0] : id;
@@ -51,15 +45,11 @@ export default function CashOutScreen() {
         setAmount(String(data.amount));
         setNotes(data.notes || "");
 
-        const datePart = data.transaction_date.includes("T")
-          ? data.transaction_date.split("T")[0]
-          : data.transaction_date;
+        const parsedDate = new Date(data.transaction_date);
+        setDate(parsedDate);
 
-        setDate(datePart);
         setPermissionNumber(data.permission_number);
         setEntryType(data.entry_type);
-
-        setDate(datePart);
       } catch (err) {
         alert("فشل تحميل بيانات المنصرف");
       }
@@ -70,14 +60,6 @@ export default function CashOutScreen() {
 
   useEffect(() => {
     if (isEdit) return;
-
-    const now = new Date();
-    setDate(
-      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-        2,
-        "0",
-      )}-${String(now.getDate()).padStart(2, "0")}`,
-    );
   }, []);
 
   const handleSave = async () => {
@@ -91,7 +73,7 @@ export default function CashOutScreen() {
     try {
       // 👇👇👇 هنا بالظبط
       const payload = {
-        branch_id: 1,
+        // branch_id: 1,
         name,
         amount: Number(amount),
         notes,
@@ -233,124 +215,7 @@ export default function CashOutScreen() {
           </View>
 
           {/* التاريخ */}
-          <Text style={[styles.label, { color: colors.muted }]}>التاريخ</Text>
-
-          <Card
-            onPress={() => {
-              const [y, m, d] = date.split("-");
-              setTempDate(new Date(+y, +m - 1, +d));
-              setShowDatePicker(true);
-            }}
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 16,
-            }}
-          >
-            <Text style={{ color: colors.text, fontWeight: "600" }}>
-              {date}
-            </Text>
-
-            <Ionicons name="calendar-outline" size={20} color={colors.muted} />
-          </Card>
-
-          {showDatePicker && Platform.OS === "android" && (
-            <DateTimePicker
-              value={tempDate || new Date()}
-              mode="date"
-              onChange={(_, d) => {
-                if (!d) return;
-                setDate(
-                  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-                    2,
-                    "0",
-                  )}-${String(d.getDate()).padStart(2, "0")}`,
-                );
-                setShowDatePicker(false);
-              }}
-            />
-          )}
-
-          {showDatePicker && Platform.OS === "ios" && (
-            <Modal transparent animationType="fade">
-              <View style={styles.modalOverlay}>
-                <View
-                  style={[styles.modalBox, { backgroundColor: colors.card }]}
-                >
-                  <DateTimePicker
-                    value={tempDate || new Date()}
-                    mode="date"
-                    display="spinner"
-                    onChange={(_, d) => {
-                      if (!d) return;
-                      setDate(
-                        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-                          2,
-                          "0",
-                        )}-${String(d.getDate()).padStart(2, "0")}`,
-                      );
-                    }}
-                  />
-
-                  <Pressable
-                    onPress={() => setShowDatePicker(false)}
-                    style={[
-                      styles.modalBtn,
-                      { backgroundColor: colors.primary },
-                    ]}
-                  >
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>تم</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </Modal>
-          )}
-
-          {showDatePicker && Platform.OS === "web" && (
-            <Modal transparent animationType="fade">
-              <View style={styles.modalOverlay}>
-                <View
-                  style={[styles.modalBox, { backgroundColor: colors.card }]}
-                >
-                  <input
-                    type="date"
-                    value={date}
-                    onChange={(e) => setDate(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        setShowDatePicker(false); // 👈 نفس زر "تم"
-                      }
-                    }}
-                    style={{ width: "100%", padding: 10 }}
-                  />
-                  <button
-                    onClick={() => setShowDatePicker(false)}
-                    style={{
-                      marginTop: 14,
-                      backgroundColor: "#2563eb",
-                      color: "#fff",
-                      border: "none",
-                      padding: "8px 26px",
-                      borderRadius: 8,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      transition: "background-color 0.2s ease",
-                    }}
-                    onMouseOver={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#1d4ed8")
-                    }
-                    onMouseOut={(e) =>
-                      (e.currentTarget.style.backgroundColor = "#2563eb")
-                    }
-                  >
-                    تم
-                  </button>
-                </View>
-              </View>
-            </Modal>
-          )}
+          <DateField label="تاريخ العملية" value={date} onChange={setDate} />
 
           {/* المبلغ */}
           <Text style={[styles.label, { color: colors.muted }]}>المبلغ</Text>
@@ -367,6 +232,7 @@ export default function CashOutScreen() {
           </Text>
           <Input
             value={notes}
+            onChangeText={setNotes}
             placeholder="أي تفاصيل إضافية"
             multiline
             style={{ minHeight: 80, textAlignVertical: "top" }}

@@ -24,6 +24,7 @@ interface Product {
   name: string;
   manufacturer: string;
   wholesale_package: string;
+  retail_package: string;
   available_quantity: number;
   wholesale_price: number;
   percent: number; // ✅ نسبة مئوية
@@ -36,6 +37,7 @@ interface TransferItem {
   quantity: number;
   percent: number;
   wholesale_package: string;
+  retail_package: string;
   wholesale_price: number;
   available_quantity: number; // 👈 مهم
 }
@@ -51,7 +53,8 @@ export default function StockTransferScreen() {
   const [search, setSearch] = useState("");
   const qtyRefs = useRef<{ [key: number]: TextInput | null }>({});
 
-  const BRANCH_ID = 2;
+  const FROM_BRANCH_ID = 2; // مخزن الجملة
+  const TO_BRANCH_ID = 1; // مخزن القطاعي
 
   /* ================= LOAD PRODUCTS ================= */
 
@@ -59,8 +62,9 @@ export default function StockTransferScreen() {
     (async () => {
       try {
         const res = await api.get("/products/for-replace", {
-          params: { branch_id: BRANCH_ID },
+          params: { branch_id: FROM_BRANCH_ID },
         });
+
         setProducts(res.data);
       } catch {
         Alert.alert("خطأ", "فشل تحميل الأصناف");
@@ -91,6 +95,7 @@ export default function StockTransferScreen() {
           quantity: 1,
           percent: 0, // ✅ افتراضي
           wholesale_package: product.wholesale_package,
+          retail_package: product.retail_package,
           wholesale_price: product.wholesale_price,
           available_quantity: product.available_quantity, // 👈 هنا
         },
@@ -125,8 +130,9 @@ export default function StockTransferScreen() {
       pathname: "/stock-transfer/preview",
       params: {
         data: JSON.stringify({
-          branch_id: BRANCH_ID,
-          total_amount: totalAmount, // ✅ الإجمالي العام
+          from_branch_id: FROM_BRANCH_ID,
+          to_branch_id: TO_BRANCH_ID,
+          total_amount: totalAmount,
           items: items.map((i) => {
             const base = i.quantity * i.wholesale_price;
             const discount = base * (i.percent / 100);
@@ -134,11 +140,8 @@ export default function StockTransferScreen() {
 
             return {
               product_id: i.product_id,
-              product_name: i.product_name,
-              manufacturer: i.manufacturer, // 👈 ضيف دي
               quantity: i.quantity,
-              final_price, // 👈 السعر النهائي للطباعة
-              wholesale_package: i.wholesale_package, // ✅ الحل كله هنا
+              final_price,
             };
           }),
         }),

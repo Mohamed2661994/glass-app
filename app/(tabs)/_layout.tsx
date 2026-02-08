@@ -1,13 +1,10 @@
+import { useTheme } from "@/components/context/theme-context";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
-
-import { useTheme } from "@/components/context/theme-context";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { Ionicons } from "@expo/vector-icons";
 import { Platform } from "react-native";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { isDark } = useTheme();
 
   return (
@@ -15,21 +12,32 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
 
-        tabBarStyle: {
-          paddingVertical: Platform.OS === "web" ? 2 : 6,
-          height: Platform.OS === "web" ? 60 : 90,
-          backgroundColor: "rgba(15, 23, 42, 0.9)",
-          borderTopColor: "rgba(59, 130, 246, 0.3)",
-          position: "absolute",
-        },
+        tabBarStyle:
+          Platform.OS === "web"
+            ? { display: "none" } // 👈 يخفيه في الويب
+            : {
+                height: Platform.OS === "android" ? 70 : 85,
+                paddingBottom: Platform.OS === "android" ? 10 : 8,
+                paddingTop: 6,
+                backgroundColor: "rgba(15, 23, 42, 0.95)",
+                borderTopColor: "rgba(59, 130, 246, 0.25)",
+                borderTopWidth: 1,
+              },
+
         tabBarLabelPosition: "below-icon",
         tabBarLabelStyle: {
-          fontSize: Platform.OS === "web" ? 10 : 12, // 👈 تصغير الخط على الويب
-          marginBottom: Platform.OS === "web" ? 2 : 4,
+          fontSize: 11,
+          marginBottom: 4,
         },
+
         tabBarItemStyle: {
-          paddingVertical: Platform.OS === "web" ? 2 : 6,
+          paddingVertical: 4,
         },
+
+        tabBarIconStyle: {
+          marginTop: 2,
+        },
+
         tabBarActiveTintColor: isDark ? "#ffffff" : "#d7dae6",
         tabBarInactiveTintColor: isDark ? "#94a3b8" : "#7d8596",
       }}
@@ -38,8 +46,8 @@ export default function TabLayout() {
         name="index"
         options={{
           title: "الرئيسية",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="home" size={22} color={color} />
           ),
         }}
       />
@@ -48,8 +56,8 @@ export default function TabLayout() {
         name="invoices"
         options={{
           title: "الفواتير",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="document-text" size={22} color={color} />
           ),
         }}
       />
@@ -58,8 +66,8 @@ export default function TabLayout() {
         name="products"
         options={{
           title: "إضافة صنف",
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="add-circle" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="add-circle" size={24} color={color} />
           ),
         }}
       />

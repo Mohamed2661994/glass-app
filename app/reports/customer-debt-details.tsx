@@ -1,14 +1,12 @@
 import { useTheme } from "@/components/context/theme-context";
+import DateFieldFT from "@/components/date/DateRangeField";
 import api from "@/services/api";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { TextInput } from "react-native";
+import { Platform } from "react-native";
 
 import {
   ActivityIndicator,
-  Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -32,13 +30,10 @@ export default function CustomerDebtDetails() {
 
   const [data, setData] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateInputText, setDateInputText] = useState("");
   const inputRef = useRef<any>(null);
 
   const [fromDate, setFromDate] = useState<Date | null>(null);
   const [toDate, setToDate] = useState<Date | null>(null);
-  const [showFromPicker, setShowFromPicker] = useState(false);
-  const [showToPicker, setShowToPicker] = useState(false);
 
   const formatDateForAPI = (date: Date) => date.toLocaleDateString("en-CA"); // YYYY-MM-DD بدون UTC
 
@@ -59,21 +54,6 @@ export default function CustomerDebtDetails() {
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (Platform.OS === "web" && (showFromPicker || showToPicker)) {
-      setTimeout(() => {
-        const el: any = inputRef.current;
-        if (el) {
-          el.focus();
-
-          // select all text
-          if (el.setSelectionRange) {
-            el.setSelectionRange(0, el.value.length);
-          }
-        }
-      }, 100);
-    }
-  }, [showFromPicker, showToPicker]);
 
   useEffect(() => {
     fetchDetails();
@@ -96,69 +76,6 @@ export default function CustomerDebtDetails() {
     const m = String(date.getMonth() + 1).padStart(2, "0");
     const y = date.getFullYear();
     return `${d}/${m}/${y}`;
-  };
-
-  const parseDisplayDate = (text: string) => {
-    const [d, m, y] = text.split("/").map(Number);
-    if (!d || !m || !y) return null;
-    const dt = new Date(y, m - 1, d);
-    return isNaN(dt.getTime()) ? null : dt;
-  };
-
-  const handleDateTextChange = (input: string) => {
-    let digits = input.replace(/\D/g, "").slice(0, 8);
-    let formatted = digits;
-
-    if (digits.length > 4)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-    else if (digits.length > 2)
-      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
-
-    setDateInputText(formatted);
-
-    if (formatted.length === 10) {
-      const parsed = parseDisplayDate(formatted);
-      if (!parsed) return;
-
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-  };
-
-  const closeDateModal = () => {
-    const parsed = parseDisplayDate(dateInputText);
-
-    // لو المستخدم مغيرش حاجة، ناخد التاريخ الموجود أصلاً
-    if (!parsed) {
-      const fallback = showFromPicker
-        ? fromDate || new Date()
-        : toDate || new Date();
-
-      if (showFromPicker) {
-        fallback.setHours(0, 0, 0, 0);
-        setFromDate(new Date(fallback));
-      } else {
-        fallback.setHours(23, 59, 59, 999);
-        setToDate(new Date(fallback));
-      }
-    } else {
-      if (showFromPicker) {
-        parsed.setHours(0, 0, 0, 0);
-        setFromDate(parsed);
-      } else {
-        parsed.setHours(23, 59, 59, 999);
-        setToDate(parsed);
-      }
-    }
-
-    setShowFromPicker(false);
-    setShowToPicker(false);
-    setDateInputText("");
   };
 
   return (
@@ -196,37 +113,28 @@ export default function CustomerDebtDetails() {
         </View>
 
         {/* فلترة التاريخ */}
-        <View
-          style={[
-            styles.card,
-            { flexDirection: "row", justifyContent: "space-between" },
-          ]}
-        >
-          <Pressable
-            style={styles.dateBtn}
-            onPress={() => {
-              const base = fromDate || new Date();
-              setDateInputText(formatDisplayDate(base));
-              setShowFromPicker(true);
-            }}
-          >
-            <Text style={{ color: colors.text }}>
-              {fromDate ? fromDate.toLocaleDateString("ar-EG") : "من تاريخ"}
-            </Text>
-          </Pressable>
+        <View style={styles.dateFilterBox}>
+          <View style={styles.dateRow}>
+            <DateFieldFT
+              label="من تاريخ"
+              value={fromDate}
+              onChange={(date) => {
+                const d = new Date(date);
+                d.setHours(0, 0, 0, 0);
+                setFromDate(d);
+              }}
+            />
 
-          <Pressable
-            style={styles.dateBtn}
-            onPress={() => {
-              const base = toDate || new Date();
-              setDateInputText(formatDisplayDate(base));
-              setShowToPicker(true);
-            }}
-          >
-            <Text style={{ color: colors.text }}>
-              {toDate ? toDate.toLocaleDateString("ar-EG") : "إلى تاريخ"}
-            </Text>
-          </Pressable>
+            <DateFieldFT
+              label="إلى تاريخ"
+              value={toDate}
+              onChange={(date) => {
+                const d = new Date(date);
+                d.setHours(23, 59, 59, 999);
+                setToDate(d);
+              }}
+            />
+          </View>
         </View>
 
         {/* جدول */}
@@ -324,88 +232,6 @@ export default function CustomerDebtDetails() {
           </View>
         )}
       </ScrollView>
-
-      {/* ANDROID PICKERS */}
-      {Platform.OS === "android" && showFromPicker && (
-        <DateTimePicker
-          value={fromDate || new Date()}
-          mode="date"
-          onChange={(_, d) => {
-            setShowFromPicker(false);
-            if (d) setFromDate(d);
-          }}
-        />
-      )}
-      {Platform.OS === "android" && showToPicker && (
-        <DateTimePicker
-          value={toDate || new Date()}
-          mode="date"
-          onChange={(_, d) => {
-            setShowToPicker(false);
-            if (d) setToDate(d);
-          }}
-        />
-      )}
-
-      {/* IOS SPINNER */}
-      {Platform.OS === "ios" && (showFromPicker || showToPicker) && (
-        <Modal transparent animationType="fade">
-          <View style={styles.modalBg}>
-            <View style={styles.modalBox}>
-              <DateTimePicker
-                value={
-                  showFromPicker ? fromDate || new Date() : toDate || new Date()
-                }
-                mode="date"
-                display="spinner"
-                onChange={(_, d) => {
-                  if (d) showFromPicker ? setFromDate(d) : setToDate(d);
-                }}
-              />
-              <Pressable
-                style={styles.doneBtn}
-                onPress={() => {
-                  setShowFromPicker(false);
-                  setShowToPicker(false);
-                }}
-              >
-                <Text style={{ color: "#fff", textAlign: "center" }}>تم</Text>
-              </Pressable>
-            </View>
-          </View>
-        </Modal>
-      )}
-
-      {/* WEB */}
-      {Platform.OS === "web" && (showFromPicker || showToPicker) && (
-        <View style={styles.webOverlay}>
-          <View style={styles.webModal}>
-            <Text style={styles.webTitle}>
-              {showFromPicker ? "اختر تاريخ البداية" : "اختر تاريخ النهاية"}
-            </Text>
-
-            <TextInput
-              ref={inputRef}
-              value={dateInputText}
-              placeholder="dd/mm/yyyy"
-              keyboardType="numeric"
-              onChangeText={handleDateTextChange}
-              onSubmitEditing={closeDateModal}
-              onKeyPress={(e: any) => {
-                if (e.nativeEvent.key === "Enter") {
-                  closeDateModal();
-                }
-              }}
-              blurOnSubmit={false}
-              style={styles.webInput}
-            />
-
-            <Pressable style={styles.webConfirmBtn} onPress={closeDateModal}>
-              <Text style={{ color: "#fff", fontWeight: "bold" }}>تم</Text>
-            </Pressable>
-          </View>
-        </View>
-      )}
     </>
   );
 }
@@ -472,6 +298,19 @@ const createStyles = (colors: any) =>
       marginBottom: 15,
       width: "100%",
       height: 45,
+    },
+    dateFilterBox: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 14,
+      padding: 14,
+      marginBottom: 16,
+    },
+
+    dateRow: {
+      flexDirection: "row",
+      gap: 10,
     },
 
     webInput: {

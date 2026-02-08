@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from "react";
-import { useColorScheme } from "react-native";
+import api from "@/services/api";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { Platform, useColorScheme } from "react-native";
 
 type ThemeMode = "light" | "dark" | "system";
 
@@ -91,11 +92,64 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemScheme = useColorScheme(); // light | dark
-  const [mode, setMode] = useState<ThemeMode>("system");
+  const getInitialMode = (): ThemeMode => {
+    if (Platform.OS === "web") {
+      const saved = localStorage.getItem("app-theme") as ThemeMode | null;
+      return saved || "system";
+    }
+    return "system";
+  };
+  const [mode, setModeState] = useState<ThemeMode>(() => {
+    if (Platform.OS === "web") {
+      return (localStorage.getItem("app-theme") as ThemeMode) || "system";
+    }
+    return "system";
+  });
 
   const isDark = mode === "system" ? systemScheme === "dark" : mode === "dark";
 
   const colors = isDark ? THEMES.dark : THEMES.light;
+
+  const setMode = (newMode: ThemeMode) => {
+    setModeState(newMode);
+
+    if (Platform.OS === "web") {
+      localStorage.setItem("app-theme", newMode);
+    }
+  };
+
+  useEffect(() => {
+    const loadThemeFromServer = async () => {
+      try {
+        const res = await api.get("/users/me"); // أو endpoint بيانات المستخدم
+        const savedTheme = res.data?.theme as ThemeMode | undefined;
+
+        if (savedTheme && savedTheme !== mode) {
+          setModeState(savedTheme);
+
+          if (Platform.OS === "web") {
+            localStorage.setItem("app-theme", savedTheme);
+          }
+        }
+      } catch (e) {
+        console.log("Failed to load theme from server");
+      }
+    };
+
+    loadThemeFromServer();
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const root = document.documentElement;
+      root.classList.remove("light", "dark");
+
+      const active =
+        mode === "system" ? (systemScheme === "dark" ? "dark" : "light") : mode;
+
+      root.classList.add(active);
+    }
+  }, [mode, systemScheme]);
 
   return (
     <ThemeContext.Provider
