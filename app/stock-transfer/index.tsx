@@ -299,36 +299,38 @@ export default function StockTransferScreen() {
                 { backgroundColor: isDark ? "#020617" : "#fff" },
               ]}
             >
-              <Input
-                placeholder="ابحث عن صنف..."
-                value={search}
-                onChangeText={setSearch}
-                autoFocus
-              />
-
-              {/* 👇 WRAPPER مهم جدًا */}
-              <View style={styles.modalListWrapper}>
-                <FlatList
-                  data={filteredProducts}
-                  keyExtractor={(item) => item.id.toString()}
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={{ paddingBottom: 20 }}
-                  renderItem={({ item }) => (
-                    <Pressable
-                      style={styles.modalItem}
-                      onPress={() => addProduct(item)}
-                    >
-                      <Text style={{ fontWeight: "700", color: "#0a2c70" }}>
-                        {item.name} – {item.manufacturer}
-                      </Text>
-
-                      <Text style={{ fontSize: 12, color: "#263a55" }}>
-                        {item.wholesale_package} • رصيد:{" "}
-                        {item.available_quantity}
-                      </Text>
-                    </Pressable>
-                  )}
+              <View style={{ flex: 1 }}>
+                <Input
+                  placeholder="ابحث عن صنف..."
+                  value={search}
+                  onChangeText={setSearch}
+                  autoFocus
                 />
+
+                {/* 👇 WRAPPER مظبوط */}
+                <View style={styles.modalListWrapper}>
+                  <FlatList
+                    data={filteredProducts}
+                    keyExtractor={(item) => item.id.toString()}
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                    renderItem={({ item }) => (
+                      <Pressable
+                        style={styles.modalItem}
+                        onPress={() => addProduct(item)}
+                      >
+                        <Text style={{ fontWeight: "700", color: "#0a2c70" }}>
+                          {item.name} – {item.manufacturer}
+                        </Text>
+
+                        <Text style={{ fontSize: 12, color: "#263a55" }}>
+                          {item.wholesale_package} • رصيد:{" "}
+                          {item.available_quantity}
+                        </Text>
+                      </Pressable>
+                    )}
+                  />
+                </View>
               </View>
             </Card>
           </View>
@@ -399,10 +401,10 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   modalListWrapper: {
-    flex: 1, // 👈 أهم سطر
+    flex: 1, // 👈 دلوقتي ليها معنى
     marginTop: 12,
     borderRadius: 12,
-    overflow: "hidden", // 👈 قص السكرول جوه الكارد
+    overflow: "hidden",
     backgroundColor: "#fff",
   },
 
@@ -448,7 +450,6 @@ const styles = StyleSheet.create({
     maxHeight: "80%",
     borderRadius: 16,
     padding: 16,
-    // 👇 فرق بسيط مهم
     backgroundColor: "#020617",
     borderWidth: 1,
     borderColor: "#1e293b",
@@ -456,6 +457,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 20,
     elevation: 10,
+
+    flexDirection: "column", // ✅ مهم
   },
 
   searchInput: {
