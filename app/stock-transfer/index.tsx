@@ -78,6 +78,10 @@ export default function StockTransferScreen() {
       p.manufacturer.toLowerCase().includes(search.toLowerCase()),
   );
 
+  const visibleProducts = filteredProducts.filter(
+    (p) => p.available_quantity > 0,
+  );
+
   /* ================= ADD FROM MODAL ================= */
 
   const addProduct = (product: Product) => {
@@ -313,7 +317,7 @@ export default function StockTransferScreen() {
                   className="hide-scrollbar"
                 >
                   <FlatList
-                    data={filteredProducts}
+                    data={visibleProducts}
                     keyExtractor={(item) => item.id.toString()}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: 20 }}
