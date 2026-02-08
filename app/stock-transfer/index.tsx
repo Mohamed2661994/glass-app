@@ -308,7 +308,10 @@ export default function StockTransferScreen() {
                 />
 
                 {/* 👇 WRAPPER مظبوط */}
-                <View style={styles.modalListWrapper}>
+                <View
+                  style={styles.modalListWrapper}
+                  className="hide-scrollbar"
+                >
                   <FlatList
                     data={filteredProducts}
                     keyExtractor={(item) => item.id.toString()}
