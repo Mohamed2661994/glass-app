@@ -2,6 +2,9 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+const LOCAL_API = "http://192.168.1.63:3001";
+const PROD_API = "https://glass-system-backend.onrender.com";
+
 export const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   "https://glass-system-backend.onrender.com";
