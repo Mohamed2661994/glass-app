@@ -296,9 +296,7 @@ export default function StockTransferScreen() {
             <Card
               style={[
                 styles.modalBox,
-                {
-                  backgroundColor: isDark ? "#020617" : "#ffffff",
-                },
+                { backgroundColor: isDark ? "#020617" : "#fff" },
               ]}
             >
               <Input
@@ -308,25 +306,30 @@ export default function StockTransferScreen() {
                 autoFocus
               />
 
-              <FlatList
-                data={filteredProducts}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ paddingTop: 12 }} // 👈 هنا
-                renderItem={({ item }) => (
-                  <Pressable
-                    style={styles.modalItem}
-                    onPress={() => addProduct(item)}
-                  >
-                    <Text style={{ fontWeight: "700", color: "#0a2c70" }}>
-                      {item.name} – {item.manufacturer}
-                    </Text>
+              {/* 👇 WRAPPER مهم جدًا */}
+              <View style={styles.modalListWrapper}>
+                <FlatList
+                  data={filteredProducts}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={{ paddingBottom: 20 }}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={styles.modalItem}
+                      onPress={() => addProduct(item)}
+                    >
+                      <Text style={{ fontWeight: "700", color: "#0a2c70" }}>
+                        {item.name} – {item.manufacturer}
+                      </Text>
 
-                    <Text style={{ fontSize: 12, color: "#263a55" }}>
-                      {item.wholesale_package} • رصيد: {item.available_quantity}
-                    </Text>
-                  </Pressable>
-                )}
-              />
+                      <Text style={{ fontSize: 12, color: "#263a55" }}>
+                        {item.wholesale_package} • رصيد:{" "}
+                        {item.available_quantity}
+                      </Text>
+                    </Pressable>
+                  )}
+                />
+              </View>
             </Card>
           </View>
         </Modal>
@@ -394,6 +397,13 @@ const styles = StyleSheet.create({
     color: "#dc2626",
     fontSize: 16,
     fontWeight: "700",
+  },
+  modalListWrapper: {
+    flex: 1, // 👈 أهم سطر
+    marginTop: 12,
+    borderRadius: 12,
+    overflow: "hidden", // 👈 قص السكرول جوه الكارد
+    backgroundColor: "#fff",
   },
 
   itemInfo: {
