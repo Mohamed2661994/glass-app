@@ -73,16 +73,14 @@ function RootLayoutContent() {
       if (Platform.OS !== "web") return;
 
       const handleKey = (e: KeyboardEvent) => {
-        // تجاهل لو المستخدم بيكتب داخل input
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
-
         if (e.key === "F7") {
           e.preventDefault();
           setOpen(true);
+          return;
         }
 
         if (e.key === "Escape") {
+          e.preventDefault();
           setOpen(false);
         }
       };
