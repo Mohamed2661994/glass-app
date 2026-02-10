@@ -68,6 +68,7 @@ export default function RetailInvoice() {
   const [phoneModalVisible, setPhoneModalVisible] = useState(false);
   const [phoneSearch, setPhoneSearch] = useState("");
   const [phoneSearchResult, setPhoneSearchResult] = useState<any | null>(null);
+  const lastAddedProductId = useRef<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [showMovementDropdown, setShowMovementDropdown] = useState(false);
@@ -170,21 +171,18 @@ export default function RetailInvoice() {
 
       setItems((prev) => {
         const exists = prev.find((p) => p.product_id === product.id);
-
-        // ✅ الصنف موجود → فوكس على الكمية فقط
+        // 👈 سجّل آخر صنف اتضاف
+        lastAddedProductId.current = product.id;
+        // ✅ لو الصنف موجود → زوّد الكمية
         if (exists) {
-          setTimeout(() => {
-            qtyRefs.current[product.id]?.focus();
-          }, 150);
-
           return prev.map((p) =>
             p.product_id === product.id
               ? { ...p, quantity: p.quantity + 1 }
               : p,
-          ); // 👈 لا تعديل على الكمية
+          );
         }
 
-        // صنف جديد
+        // ✅ لو صنف جديد
         return [
           ...prev,
           {
@@ -196,7 +194,6 @@ export default function RetailInvoice() {
               product.unit_package ||
               product.package ||
               "",
-            // 👈 الصح
             price: product.price,
             quantity: 1,
             discount: product.discount_amount || 0,
@@ -204,15 +201,11 @@ export default function RetailInvoice() {
         ];
       });
 
-      setTimeout(() => {
-        qtyRefs.current[product.id]?.focus();
-      }, 200);
-
       setBarcode("");
       setScanned(false);
       setTimeout(() => {
         barcodeRef.current?.focus();
-      }, 150);
+      }, 0);
     } catch (err) {
       console.error(err);
       Alert.alert("خطأ", "فشل قراءة الباركود");
@@ -271,11 +264,6 @@ export default function RetailInvoice() {
         setTimeout(() => setHighlightProductId(null), 600);
 
         setShowProductModal(false);
-
-        setTimeout(() => {
-          qtyRefs.current[product.id]?.focus();
-          setHighlightProductId(null);
-        }, 300);
 
         return prev; // 👈 مهم جدًا
       }
@@ -972,7 +960,16 @@ export default function RetailInvoice() {
                 onChangeText={setBarcode}
                 placeholder="الباركود هنا"
                 placeholderTextColor="#6b7280"
-                onSubmitEditing={() => handleBarcodeScan()}
+                onSubmitEditing={() => {
+                  handleBarcodeScan();
+
+                  // 👇 فوكس على كمية آخر صنف
+                  setTimeout(() => {
+                    if (lastAddedProductId.current) {
+                      qtyRefs.current[lastAddedProductId.current]?.focus();
+                    }
+                  }, 100);
+                }}
                 autoFocus
                 blurOnSubmit={false}
                 returnKeyType="done"

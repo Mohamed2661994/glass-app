@@ -1,8 +1,11 @@
 import { useTheme } from "@/components/context/theme-context";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
+import ManufacturerCombobox from "@/components/ui/ManufacturerCombobox";
+import { useRef, useState } from "react";
 import { Platform, TextInput, TouchableOpacity } from "react-native";
-
+import RetailPackageInput from "./RetailPackageInput";
+import WholesalePackageInput from "./WholesalePackageInput";
 type Props = {
   form: any;
   onOpenScanner: () => void;
@@ -10,7 +13,16 @@ type Props = {
 
 export default function ProductForm({ form, onOpenScanner }: Props) {
   const { colors } = useTheme();
-
+  const [openDropdown, setOpenDropdown] = useState<
+    "manufacturer" | "wholesale" | "retail" | null
+  >(null);
+  const nameRef = useRef<TextInput>(null);
+  const manufacturerRef = useRef<TextInput>(null);
+  const wholesalePurchasePriceRef = useRef<TextInput>(null);
+  const wholesalePriceRef = useRef<TextInput>(null);
+  const retailPurchasePriceRef = useRef<TextInput>(null);
+  const retailPriceRef = useRef<TextInput>(null);
+  const discountRef = useRef<TextInput>(null);
   return (
     <ThemedView
       style={{
@@ -20,6 +32,7 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
         gap: 10,
         width: Platform.OS === "web" ? 400 : "100%",
         alignSelf: "flex-start",
+        overflow: "visible",
       }}
     >
       <ThemedText
@@ -62,11 +75,13 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
       )}
 
       <TextInput
-        ref={form.nameInputRef}
+        ref={nameRef}
         placeholder="اسم الصنف"
         placeholderTextColor="#888"
         value={form.name}
         onChangeText={form.setName}
+        returnKeyType="next"
+        onSubmitEditing={() => manufacturerRef.current?.focus()}
         style={{
           height: 48,
           borderWidth: 1,
@@ -78,54 +93,37 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
         }}
       />
 
-      <TextInput
-        placeholder="المصنع"
+      <ManufacturerCombobox
         value={form.manufacturer}
-        onChangeText={form.setManufacturer}
-        style={{
-          height: 48,
-          borderWidth: 1,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          backgroundColor: colors.input,
-          borderColor: colors.border,
-          color: colors.text,
-        }}
+        onChange={form.setManufacturer}
+        open={openDropdown === "manufacturer"}
+        onOpen={() => setOpenDropdown("manufacturer")}
+        onClose={() => setOpenDropdown(null)}
       />
 
-      <TextInput
-        placeholder="عبوة الجملة"
+      <WholesalePackageInput
         value={form.wholesalePackage}
-        onChangeText={form.setWholesalePackage}
-        style={{
-          height: 48,
-          borderWidth: 1,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          backgroundColor: colors.input,
-          borderColor: colors.border,
-          color: colors.text,
-        }}
+        onChange={form.setWholesalePackage}
+        open={openDropdown === "wholesale"}
+        onOpen={() => setOpenDropdown("wholesale")}
+        onClose={() => setOpenDropdown(null)}
       />
 
-      <TextInput
-        placeholder="عبوة القطاعي"
+      <RetailPackageInput
         value={form.retailPackage}
-        onChangeText={form.setRetailPackage}
-        style={{
-          height: 48,
-          borderWidth: 1,
-          borderRadius: 10,
-          paddingHorizontal: 12,
-          backgroundColor: colors.input,
-          borderColor: colors.border,
-          color: colors.text,
-        }}
+        onChange={form.setRetailPackage}
+        open={openDropdown === "retail"}
+        onOpen={() => setOpenDropdown("retail")}
+        onClose={() => setOpenDropdown(null)}
       />
 
       <TextInput
+        ref={wholesalePurchasePriceRef}
         placeholder="سعر الشراء جملة"
         keyboardType="numeric"
+        returnKeyType="next"
+        onSubmitEditing={() => wholesalePriceRef.current?.focus()}
+        blurOnSubmit={false}
         value={form.purchasePrice}
         onChangeText={form.setPurchasePrice}
         style={{
@@ -140,8 +138,12 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
       />
 
       <TextInput
+        ref={wholesalePriceRef}
         placeholder="سعر البيع جملة"
         keyboardType="numeric"
+        returnKeyType="next"
+        onSubmitEditing={() => retailPurchasePriceRef.current?.focus()}
+        blurOnSubmit={false}
         value={form.wholesalePrice}
         onChangeText={form.setWholesalePrice}
         style={{
@@ -154,10 +156,13 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
           color: colors.text,
         }}
       />
-
       <TextInput
+        ref={retailPurchasePriceRef}
         placeholder="سعر الشراء قطاعي"
         keyboardType="numeric"
+        returnKeyType="next"
+        onSubmitEditing={() => retailPriceRef.current?.focus()}
+        blurOnSubmit={false}
         value={form.retailPurchasePrice}
         onChangeText={form.setRetailPurchasePrice}
         style={{
@@ -172,8 +177,12 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
       />
 
       <TextInput
+        ref={retailPriceRef}
         placeholder="سعر البيع قطاعي"
         keyboardType="numeric"
+        returnKeyType="next"
+        onSubmitEditing={() => discountRef.current?.focus()}
+        blurOnSubmit={false}
         value={form.retailPrice}
         onChangeText={form.setRetailPrice}
         style={{
@@ -188,8 +197,11 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
       />
 
       <TextInput
+        ref={discountRef}
         placeholder="خصم ثابت"
         keyboardType="numeric"
+        returnKeyType="done"
+        onSubmitEditing={form.handleSave}
         value={form.discount}
         onChangeText={form.setDiscount}
         style={{
