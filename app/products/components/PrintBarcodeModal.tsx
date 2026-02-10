@@ -100,7 +100,7 @@ export default function PrintBarcodeModal({ product, onClose }: Props) {
                 backgroundColor: colors.primary,
               }}
             >
-              <ThemedText style={{ color: "#fff", fontWeight: "600" }}>
+              <ThemedText style={{ color: "#b63333", fontWeight: "600" }}>
                 طباعة
               </ThemedText>
             </TouchableOpacity>
