@@ -52,7 +52,7 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
         placeholder="الباركود (اختياري)"
         placeholderTextColor="#888"
         value={form.barcode}
-        editable={!form.editingId}
+        //editable={!form.editingId}
         onChangeText={form.setBarcode}
         keyboardType="numeric"
         style={{
