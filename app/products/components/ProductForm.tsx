@@ -17,7 +17,8 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
     "manufacturer" | "wholesale" | "retail" | null
   >(null);
   const nameRef = useRef<TextInput>(null);
-  const manufacturerRef = useRef<TextInput>(null);
+  const wholesaleCountRef = useRef<TextInput>(null);
+  const retailCountRef = useRef<TextInput>(null);
   const wholesalePurchasePriceRef = useRef<TextInput>(null);
   const wholesalePriceRef = useRef<TextInput>(null);
   const retailPurchasePriceRef = useRef<TextInput>(null);
@@ -77,11 +78,10 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
       <TextInput
         ref={nameRef}
         placeholder="اسم الصنف"
-        placeholderTextColor="#888"
         value={form.name}
         onChangeText={form.setName}
         returnKeyType="next"
-        onSubmitEditing={() => manufacturerRef.current?.focus()}
+        onSubmitEditing={() => setOpenDropdown("manufacturer")}
         style={{
           height: 48,
           borderWidth: 1,
@@ -93,20 +93,31 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
         }}
       />
 
+      {/* ===== المصنع ===== */}
       <ManufacturerCombobox
         value={form.manufacturer}
         onChange={form.setManufacturer}
         open={openDropdown === "manufacturer"}
         onOpen={() => setOpenDropdown("manufacturer")}
         onClose={() => setOpenDropdown(null)}
+        onNext={() => {
+          setOpenDropdown("wholesale");
+          requestAnimationFrame(() => wholesaleCountRef.current?.focus());
+        }}
       />
 
+      {/* ===== جملة ===== */}
       <WholesalePackageInput
         value={form.wholesalePackage}
         onChange={form.setWholesalePackage}
         open={openDropdown === "wholesale"}
         onOpen={() => setOpenDropdown("wholesale")}
         onClose={() => setOpenDropdown(null)}
+        countRef={wholesaleCountRef}
+        onNext={() => {
+          setOpenDropdown("retail");
+          requestAnimationFrame(() => retailCountRef.current?.focus());
+        }}
       />
 
       <RetailPackageInput
@@ -115,6 +126,8 @@ export default function ProductForm({ form, onOpenScanner }: Props) {
         open={openDropdown === "retail"}
         onOpen={() => setOpenDropdown("retail")}
         onClose={() => setOpenDropdown(null)}
+        countRef={retailCountRef}
+        onNext={() => wholesalePurchasePriceRef.current?.focus()}
       />
 
       <TextInput
